@@ -61,7 +61,8 @@ describe('Katalog', () => {
   });
 
   it('sucht nach Namen und ignoriert zu kurze Anfragen', async () => {
-    const hit = (await app.inject({ url: '/v1/search?q=karte%20012' })).json();
+    // Der zwölfte Name kommt in allen drei Demo-Sets vor.
+    const hit = (await app.inject({ url: '/v1/search?q=sternstaub' })).json();
     expect(hit.cards.length).toBe(3);
     expect(hit.cards[0]).toHaveProperty('setName');
     expect((await app.inject({ url: '/v1/search?q=a' })).json().cards).toEqual([]);

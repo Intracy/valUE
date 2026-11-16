@@ -1,12 +1,13 @@
 import { loadConfig } from '../config.js';
 import type { SourceCard, SourceSet } from '../sources/price-source.js';
 import { bumpCatalogVersion, refreshCardCounts, snapshotPrices, upsertCards, upsertSets } from '../sync/store.js';
+import { demoCardSvg, demoNames } from './demo-art.js';
 import { migrate } from './migrate.js';
 import { createPool, type Db } from './pool.js';
 
 /**
  * Erfundene Demo-Daten, damit App und Server ohne API-Schlüssel laufen.
- * Bewusst ohne echte Kartennamen und ohne Bilder.
+ * Namen und Motive sind erfunden und zeigen keine echte Karte (siehe demo-art.ts).
  */
 const RARITIES = ['Common', 'Common', 'Common', 'Uncommon', 'Uncommon', 'Rare', 'Holo Rare', 'Ultra Rare', 'Secret Rare'];
 
@@ -22,13 +23,14 @@ export function demoCards(): SourceCard[] {
       const number = index + 1;
       const rarity = RARITIES[index % RARITIES.length]!;
       const price = Math.round((0.2 + ((number * 37) % 97) * (rarity.includes('Rare') ? 1.4 : 0.05)) * 100) / 100;
+      const name = demoNames[index % demoNames.length]!;
       return {
         id: `${set.id}-${String(number).padStart(3, '0')}`,
         setId: set.id,
-        name: `Beispielkarte ${String(number).padStart(3, '0')}`,
+        name,
         number: `${number}/${set.cardCount}`,
         rarity,
-        imageUrl: null,
+        imageUrl: demoCardSvg({ setId: set.id, number, total: set.cardCount ?? 0, name, rarity }),
         marketPriceUsd: price,
         lowPriceUsd: Math.round(price * 0.8 * 100) / 100,
         priceUpdatedAt: null,

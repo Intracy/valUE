@@ -1,6 +1,6 @@
 import { TabList, Tabs, TabSlot, TabTrigger, type TabListProps, type TabTriggerSlotProps } from 'expo-router/ui';
 import { SymbolView } from 'expo-symbols';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View, type PressableProps } from 'react-native';
 
 import { MAX_CONTENT_WIDTH, MIN_TOUCH, radius, space } from '@/theme/theme';
@@ -18,8 +18,20 @@ type WebSymbol = 'collections' | 'style' | 'search' | 'person';
  * Navigation im Browser. Auf Handybreite eine Leiste unten mit Symbol und
  * Beschriftung, wie man sie von der App kennt; auf breiten Fenstern eine Zeile oben.
  */
+/**
+ * Die Seiten werden beim Bauen ohne Fensterbreite vorgerendert. Bis der Browser
+ * übernommen hat, gilt deshalb die schmale Fassung, sonst passen vorgerenderte
+ * Seite und erste Darstellung nicht zusammen.
+ */
+function useNarrow(): boolean {
+  const width = useWindowDimensions().width;
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+  return hydrated ? width < WIDE : true;
+}
+
 export default function AppTabs() {
-  const narrow = useWindowDimensions().width < WIDE;
+  const narrow = useNarrow();
   return (
     <Narrow.Provider value={narrow}>
       <Tabs style={[styles.root, { flexDirection: narrow ? 'column' : 'column-reverse' }]}>

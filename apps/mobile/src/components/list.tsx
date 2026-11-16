@@ -41,29 +41,32 @@ export function Row({ title, subtitle, value, onPress, isLast, children }: RowPr
   const colors = usePalette();
   const content = (
     <View style={[styles.row, !isLast && { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-      <View style={styles.rowText}>
-        <AppText variant="body" numberOfLines={2}>
-          {title}
-        </AppText>
-        {subtitle ? (
-          <AppText variant="footnote" tone="secondary" numberOfLines={1}>
-            {subtitle}
+      <View style={styles.rowLine}>
+        <View style={styles.rowText}>
+          <AppText variant="body" numberOfLines={2}>
+            {title}
+          </AppText>
+          {subtitle ? (
+            <AppText variant="footnote" tone="secondary" numberOfLines={1}>
+              {subtitle}
+            </AppText>
+          ) : null}
+        </View>
+        {value ? (
+          <AppText variant="body" tone="secondary" style={styles.rowValue}>
+            {value}
           </AppText>
         ) : null}
-        {children}
+        {onPress ? (
+          <SymbolView
+            name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+            size={14}
+            tintColor={colors.tertiaryLabel}
+          />
+        ) : null}
       </View>
-      {value ? (
-        <AppText variant="body" tone="secondary" style={styles.rowValue}>
-          {value}
-        </AppText>
-      ) : null}
-      {onPress ? (
-        <SymbolView
-          name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
-          size={14}
-          tintColor={colors.tertiaryLabel}
-        />
-      ) : null}
+      {/* Zusatz wie ein Fortschrittsbalken steht unter der Zeile und nutzt die volle Breite. */}
+      {children}
     </View>
   );
   if (!onPress) return content;
@@ -87,10 +90,9 @@ const styles = StyleSheet.create({
     marginLeft: space.md,
     paddingRight: space.md,
     paddingVertical: 11,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
+    justifyContent: 'center',
   },
+  rowLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   rowText: { flex: 1, gap: 2 },
   rowValue: { flexShrink: 0, textAlign: 'right' },
 });
