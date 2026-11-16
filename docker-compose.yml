@@ -1,0 +1,21 @@
+# Lokale Datenbank für die Entwicklung: npm run db:up
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: value
+      POSTGRES_PASSWORD: value
+      POSTGRES_DB: value
+    ports:
+      - "5432:5432"
+    volumes:
+      - value-db:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U value"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  value-db:

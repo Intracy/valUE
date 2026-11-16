@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.expo/
+*.log
+.DS_Store
+
+# Geheimnisse. Nur die .env.example-Dateien gehören ins Repository.
+.env
+.env.*
+!.env.example

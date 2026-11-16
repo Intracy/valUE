@@ -1,0 +1,51 @@
+import { loadConfig } from '../config.js';
+import { migrate } from '../db/migrate.js';
+import { createPool } from '../db/pool.js';
+import { PokemonPriceTrackerSource } from '../sources/pokemon-price-tracker.js';
+import { exportPrintingRows, openExport } from '../sources/ppt-export.js';
+import { runApiSync, runExportSync } from './sync.js';
+
+/**
+ * Abgleich als eigener Prozess. So starten ihn ein Cron-Job oder ein Worker,
+ * unabhängig von den API-Servern: `npm run sync`.
+ */
+const config = loadConfig();
+if (!config.ppt.apiKey) {
+  console.error('PPT_API_KEY fehlt. Schlüssel in apps/server/.env eintragen.');
+  process.exit(1);
+}
+
+const db = createPool(config.databaseUrl, 4);
+const log = (message: string) => console.log(`[sync] ${message}`);
+
+try {
+  await migrate(db);
+  const result =
+    config.sync.mode === 'export'
+      ? await runExportSync(
+          db,
+          exportPrintingRows(
+            await openExport({ apiKey: config.ppt.apiKey, baseUrl: config.ppt.baseUrl, type: 'printings' }),
+          ),
+          { log },
+        )
+      : await runApiSync(
+          db,
+          new PokemonPriceTrackerSource({ apiKey: config.ppt.apiKey, baseUrl: config.ppt.baseUrl }),
+          {
+            sets: config.sync.sets,
+            language: config.sync.language,
+            maxCredits: config.sync.maxCreditsPerRun,
+            setsRefreshHours: config.sync.setsRefreshHours,
+            log,
+          },
+        );
+
+  log(
+    `Status ${result.status}: ${result.setsSynced} Sets, ${result.cardsSynced} Karten, ${result.creditsUsed} Credits.`,
+  );
+  for (const note of result.notes) log(`Hinweis: ${note}`);
+  process.exitCode = result.status === 'failed' ? 1 : 0;
+} finally {
+  await db.end();
+}

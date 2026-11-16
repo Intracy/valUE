@@ -1,0 +1,10 @@
+{
+  "name": "@value/api-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vertrag zwischen App und Server. Nur Typen, kein Laufzeitcode.",
+  "types": "src/index.ts",
+  "main": "src/index.ts",
+  "scripts": { "typecheck": "tsc --noEmit -p tsconfig.json" },
+  "devDependencies": { "typescript": "~6.0.3" }
+}

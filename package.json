@@ -1,0 +1,16 @@
+{
+  "name": "value",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev:server": "npm run dev -w @value/server",
+    "dev:app": "npm run start -w @value/mobile",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "npm run migrate -w @value/server",
+    "sync": "npm run sync -w @value/server",
+    "test": "npm run test -w @value/server",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

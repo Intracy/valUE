@@ -1,0 +1,60 @@
+/**
+ * Einheitliche Schnittstelle zu einem Datenanbieter. Der Rest des Servers kennt
+ * nur diese Typen. Ein anderer Anbieter wird angeschlossen, indem er `PriceSource`
+ * umsetzt; Datenbank, API und App bleiben unberührt.
+ */
+
+export interface SourceSet {
+  id: string;
+  name: string;
+  series: string | null;
+  language: string;
+  /** YYYY-MM-DD */
+  releaseDate: string | null;
+  cardCount: number | null;
+  imageUrl: string | null;
+}
+
+export interface SourcePrinting {
+  printing: string;
+  marketPriceUsd: number | null;
+  lowPriceUsd: number | null;
+}
+
+export interface SourceCard {
+  id: string;
+  setId: string;
+  name: string;
+  number: string | null;
+  rarity: string | null;
+  imageUrl: string | null;
+  marketPriceUsd: number | null;
+  lowPriceUsd: number | null;
+  /** ISO-Zeitstempel des Preisstands, falls die Quelle ihn nennt. */
+  priceUpdatedAt: string | null;
+  printings: SourcePrinting[];
+}
+
+export interface CreditUsage {
+  /** Credits, die dieser Abruf gekostet hat. */
+  consumed: number;
+  /** Restliches Tageskontingent laut Anbieter, falls gemeldet. */
+  dailyRemaining: number | null;
+}
+
+export interface PriceSource {
+  readonly name: string;
+  listSets(language: string): Promise<{ sets: SourceSet[]; credits: CreditUsage }>;
+  listCardsInSet(set: SourceSet): Promise<{ cards: SourceCard[]; skipped: number; credits: CreditUsage }>;
+}
+
+export class SourceError extends Error {
+  constructor(
+    message: string,
+    readonly status: number | null = null,
+    readonly retryAfterSeconds: number | null = null,
+  ) {
+    super(message);
+    this.name = 'SourceError';
+  }
+}
