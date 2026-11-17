@@ -1,4 +1,4 @@
-# valUE als Test-Installation: Datenbank, API-Server und Web-App.
+# valUE als Test-Installation: Datenbank, API-Server, Katalogabgleich und Web-App.
 # Start:  docker compose -f deploy/docker-compose.yml up -d --build
 # Die Web-App ist danach auf Port 8095 erreichbar (über Tailscale siehe deploy/README.md).
 name: value
@@ -29,11 +29,31 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://value:value@db:5432/value
-      # Demo-Daten bei jedem Start auffrischen. Für echte Daten auf false und
-      # PPT_API_KEY setzen (siehe deploy/README.md).
-      SEED_DEMO: "true"
+      # Echte Karten kommen vom Dienst "catalog". "true" spielt stattdessen Demo-Daten ein.
+      SEED_DEMO: "false"
       TRUST_PROXY: "true"
       SCAN_OCR_WORKERS: "1"
+
+  # Katalog von TCGdex (Englisch, Deutsch, Japanisch, rund 57.000 Karten),
+  # Fingerabdrücke für den Scanner und Preise von Pokemon Price Tracker. Läuft
+  # beim Start und danach alle 24 Stunden. Der erste Lauf dauert ein bis zwei Stunden.
+  catalog:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://value:value@db:5432/value
+      # Schlüssel nur auf der NAS in /volume1/docker/valUE.env, nie im Repository.
+      PPT_API_KEY: ${PPT_API_KEY:-}
+      SYNC_SETS: ${SYNC_SETS:-Celebrations}
+      CATALOG_CONCURRENCY: "6"
+    healthcheck:
+      disable: true
+    command: ["sh", "-c", "while true; do npx tsx src/sync/catalog-cli.ts; sleep 86400; done"]
 
   web:
     build:

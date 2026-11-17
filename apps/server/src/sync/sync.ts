@@ -2,16 +2,18 @@ import type { Db } from '../db/pool.js';
 import type { ExportPrintingRow } from '../sources/ppt-export.js';
 import type { PriceSource, SourceCard, SourceSet } from '../sources/price-source.js';
 import {
+  applyPrices,
   bumpCatalogVersion,
   refreshCardCounts,
   snapshotPrices,
   upsertCards,
+  upsertPriceSets,
   upsertSets,
 } from './store.js';
 
 // Feste Zahl für pg_try_advisory_lock: Es läuft immer nur ein Abgleich, auch wenn
 // mehrere Server-Instanzen oder Cron-Läufe gleichzeitig starten.
-const SYNC_LOCK = 4_711_002;
+export const SYNC_LOCK = 4_711_002;
 
 export interface SyncOptions {
   /** Namen oder IDs der Sets, die abgeglichen werden. Leer = keine. */
@@ -21,6 +23,12 @@ export interface SyncOptions {
   /** Credits je Karte; mit Preisverlauf 2 statt 1 (laut `metadata.apiCallsConsumed`). */
   creditsPerCard?: number;
   setsRefreshHours: number;
+  /**
+   * `catalog`: Die Quelle füllt den Katalog (Sets und Karten).
+   * `prices`: Der Katalog kommt von TCGdex; die Quelle liefert nur Preise für
+   * vorhandene Karten. Ihre Set-Liste landet in `price_sets`.
+   */
+  target?: 'catalog' | 'prices';
   now?: () => Date;
   log?: (message: string) => void;
 }
@@ -58,6 +66,8 @@ const toSourceSet = (row: SetRow): SourceSet => ({
 export async function runApiSync(db: Db, source: PriceSource, options: SyncOptions): Promise<SyncResult> {
   const log = options.log ?? (() => undefined);
   const now = options.now ?? (() => new Date());
+  const pricesOnly = options.target === 'prices';
+  const setTable = pricesOnly ? 'price_sets' : 'sets';
   const lock = await db.connect();
   const result: SyncResult = {
     status: 'ok',
@@ -92,7 +102,7 @@ export async function runApiSync(db: Db, source: PriceSource, options: SyncOptio
       const freshness = await db.query<{ stale: boolean; n: number }>(
         `select count(*)::int as n,
                 coalesce(max(updated_at) < now() - make_interval(hours => $1::int), true) as stale
-         from sets where language = $2`,
+         from ${setTable} where language = $2`,
         [options.setsRefreshHours, options.language],
       );
       const { n, stale } = freshness.rows[0]!;
@@ -102,7 +112,7 @@ export async function runApiSync(db: Db, source: PriceSource, options: SyncOptio
         } else {
           const { sets, credits } = await source.listSets(options.language);
           account(Math.max(credits.consumed, 1), credits.dailyRemaining);
-          await upsertSets(db, sets);
+          await (pricesOnly ? upsertPriceSets(db, sets) : upsertSets(db, sets));
           log(`Set-Liste geladen: ${sets.length} Sets.`);
         }
       }
@@ -111,8 +121,10 @@ export async function runApiSync(db: Db, source: PriceSource, options: SyncOptio
       const touchedSets: string[] = [];
       for (const wanted of options.sets) {
         const found = await db.query<SetRow>(
-          `select id, name, series, language, release_date, card_count, image_url
-           from sets
+          `select id, name, ${pricesOnly ? 'null as series' : 'series'}, language,
+                  ${pricesOnly ? 'null as release_date' : 'release_date'}, card_count,
+                  ${pricesOnly ? 'null as image_url' : 'image_url'}
+           from ${setTable}
            where language = $2 and (id = $1 or lower(name) = lower($1))
            limit 1`,
           [wanted, options.language],
@@ -144,11 +156,17 @@ export async function runApiSync(db: Db, source: PriceSource, options: SyncOptio
           result.notes.push(`Set "${row.name}": Die Quelle lieferte keine Karten.`);
           continue;
         }
-        await writeCards(db, cards, now());
-        touchedSets.push(row.id);
+        if (pricesOnly) {
+          const priced = await writePrices(db, cards, now());
+          result.cardsSynced += priced;
+          log(`Set "${row.name}": ${cards.length} Preise, ${priced} Katalogkarten zugeordnet.`);
+        } else {
+          await writeCards(db, cards, now());
+          touchedSets.push(row.id);
+          result.cardsSynced += cards.length;
+          log(`Set "${row.name}": ${cards.length} Karten.`);
+        }
         result.setsSynced += 1;
-        result.cardsSynced += cards.length;
-        log(`Set "${row.name}": ${cards.length} Karten.`);
       }
 
       await refreshCardCounts(db, touchedSets);
@@ -175,6 +193,23 @@ export async function runApiSync(db: Db, source: PriceSource, options: SyncOptio
   } finally {
     await lock.query('select pg_advisory_unlock($1)', [SYNC_LOCK]).catch(() => undefined);
     lock.release();
+  }
+}
+
+/** Preise auf Katalogkarten schreiben und den Tagesstand festhalten. Liefert die Zahl zugeordneter Karten. */
+async function writePrices(db: Db, cards: SourceCard[], at: Date): Promise<number> {
+  const client = await db.connect();
+  try {
+    await client.query('begin');
+    const ids = await applyPrices(client, cards);
+    await snapshotPrices(client, ids, at.toISOString().slice(0, 10));
+    await client.query('commit');
+    return ids.length;
+  } catch (error) {
+    await client.query('rollback').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
   }
 }
 

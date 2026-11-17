@@ -239,6 +239,7 @@ export function mapCard(raw: unknown, set: SourceSet): SourceCard | null {
       pick(raw, ['prices.lastUpdated', 'lastPriceUpdate', 'priceUpdatedAt', 'lastUpdated', 'updatedAt']),
     ),
     printings: mapPrintings(raw),
+    externalId: asText(pick(raw, ['externalCatalogId'])) ?? null,
     element: normalizeElement(pick(raw, ['types', 'type', 'energyType', 'pokemonType', 'element', 'cardType'])),
     grades: mapGrades(raw),
     history: mapHistory(raw),

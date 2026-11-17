@@ -12,6 +12,10 @@
 # Container alpine/git.
 #
 # Einstellbar: VALUE_DIR (Standard /volume1/docker/valUE), VALUE_BRANCH (Standard main).
+#
+# Geheimnisse wie der Schlüssel für Pokemon Price Tracker stehen nicht im
+# Repository, sondern in einer Datei neben dem Ordner, etwa
+# /volume1/docker/valUE.env mit der Zeile PPT_API_KEY=… (siehe deploy/README.md).
 
 set -euo pipefail
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
@@ -53,6 +57,16 @@ git_ reset --quiet --hard "origin/$BRANCH"
 after="$(git_ rev-parse HEAD)"
 log "Stand: $BRANCH $(git_ log -1 --format='%h %s')"
 
+# Einstellungen von der NAS (nicht im Repository)
+ENV_FILE="$(dirname "$DIR")/valUE.env"
+if [ -f "$ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$ENV_FILE"
+  set +a
+  log "Einstellungen aus $ENV_FILE geladen."
+fi
+
 # 2. Bauen und starten, wenn nötig
 running="$(compose ps -q web 2>/dev/null || true)"
 if [ "$before" = "$after" ] && [ -n "$running" ] && [ "${1:-}" != "--force" ]; then
@@ -72,6 +86,8 @@ for _ in $(seq 1 60); do
 done
 curl -fsS "http://127.0.0.1:$WEB_PORT/readyz" >/dev/null 2>&1 || { log "App antwortet nicht. Logs: ${COMPOSE[*]} -f $DIR/deploy/docker-compose.yml logs"; exit 1; }
 log "App läuft auf http://$(hostname):$WEB_PORT"
+log "Katalogabgleich, letzte Meldungen:"
+compose logs --tail 3 --no-log-prefix catalog 2>&1 | sed 's/^/    /' || true
 
 # 4. Über Tailscale mit HTTPS freigeben (die iPhone-Kamera braucht HTTPS)
 # Der Pfad hängt von der Paketversion ab.

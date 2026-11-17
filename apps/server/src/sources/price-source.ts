@@ -48,6 +48,8 @@ export interface SourceCard {
   element?: string | null;
   /** Preise gegradeter Exemplare, falls die Quelle sie mitliefert. */
   grades?: SourceGrade[];
+  /** ID der Karte im TCGdex-Katalog ("base1-4"), falls die Quelle sie nennt. Ordnet Preise Katalogkarten zu. */
+  externalId?: string | null;
   /** Tagespreise der Vergangenheit (Near Mint), falls angefragt. */
   history?: { day: string; marketPriceUsd: number }[];
 }

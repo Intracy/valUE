@@ -48,6 +48,18 @@ const schema = z.object({
   SYNC_HISTORY_DAYS: z.coerce.number().int().nonnegative().default(0),
   /** Quelle des Wechselkurses (EZB-Tageskurs im XML-Format). Nur für Tests ändern. */
   FX_URL: z.string().url().default('https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml'),
+  /** Sprachen des TCGdex-Katalogs (en, de, ja). */
+  CATALOG_LANGUAGES: z.string().default('en,de,ja'),
+  /** Gleichzeitige Abrufe bei TCGdex. */
+  CATALOG_CONCURRENCY: z.coerce.number().int().positive().default(8),
+  /** Bekannte Sets nach so vielen Tagen erneut von TCGdex abgleichen. */
+  CATALOG_REFRESH_DAYS: z.coerce.number().int().positive().default(30),
+  /** Demo-Sets beim Katalogabgleich entfernen. */
+  CATALOG_REMOVE_DEMO: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  TCGDEX_URL: z.string().url().default('https://api.tcgdex.net/v2'),
   /** Set-Liste höchstens so oft neu laden (kostet 1 Credit). */
   SYNC_SETS_REFRESH_HOURS: z.coerce.number().int().positive().default(168),
 });
@@ -80,6 +92,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     ppt: {
       apiKey: value.PPT_API_KEY,
       baseUrl: value.PPT_BASE_URL,
+    },
+    catalog: {
+      languages: csv(value.CATALOG_LANGUAGES),
+      concurrency: value.CATALOG_CONCURRENCY,
+      refreshDays: value.CATALOG_REFRESH_DAYS,
+      removeDemo: value.CATALOG_REMOVE_DEMO,
+      tcgdexUrl: value.TCGDEX_URL,
     },
     sync: {
       mode: value.SYNC_MODE,

@@ -16,13 +16,15 @@
     "test": "vitest run",
     "loadtest": "node scripts/load-test.mjs",
     "fingerprints": "tsx --env-file-if-exists=.env src/scan/fingerprints-cli.ts",
-    "scan:benchmark": "tsx --env-file-if-exists=.env test/scan-benchmark.ts"
+    "scan:benchmark": "tsx --env-file-if-exists=.env test/scan-benchmark.ts",
+    "catalog": "tsx --env-file-if-exists=.env src/sync/catalog-cli.ts"
   },
   "dependencies": {
     "@fastify/compress": "^8.0.0",
     "@fastify/cors": "^11.0.0",
     "@fastify/rate-limit": "^10.0.0",
     "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/jpn": "^1.0.0",
     "@value/api-types": "*",
     "fastify": "^5.0.0",
     "pg": "^8.13.0",
