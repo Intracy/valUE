@@ -1,6 +1,6 @@
 import type { Db } from '../db/pool.js';
 import { binarize, fingerprint, ocrRegions } from './image.js';
-import { parseCardName, parseCardNumber, type OcrEngine } from './ocr.js';
+import { foldJapanese, japaneseSimilarity, parseCardName, parseCardNumber, parseJapaneseName, type OcrEngine } from './ocr.js';
 import type { VisualIndex } from './visual-index.js';
 
 /**
@@ -110,7 +110,17 @@ export async function identifyCard(
   // Mehrere Fassungen nacheinander, bis eine lesbar ist. Die erste klappt meistens,
   // die weiteren kosten nur bei schwierigen Fotos Zeit.
   const readNumber = async () => {
-    for (const variant of [binarize(regions.bottom, 110), Promise.resolve(regions.bottom), binarize(regions.bottom, 150)]) {
+    const variants = [
+      () => binarize(regions.numberLeft, 128),
+      () => binarize(regions.numberRight, 128),
+      () => Promise.resolve(regions.numberLeft),
+      () => Promise.resolve(regions.numberRight),
+      () => binarize(regions.bottom, 110),
+      () => Promise.resolve(regions.bottom),
+      () => binarize(regions.bottom, 150),
+    ];
+    for (const next of variants) {
+      const variant = next();
       const parsed = parseCardNumber((await deps.ocr.recognize(await variant, { digits: true })).text);
       if (parsed) return parsed;
     }
@@ -154,13 +164,50 @@ export async function identifyCard(
       : Promise.resolve({ rows: [] as { id: string }[] }),
   ]);
 
-  const ids = [...new Set([...visualTop.map((hit) => hit.cardId), ...byNumber.rows.map((r) => r.id), ...byName.rows.map((r) => r.id)])];
-  if (ids.length === 0) {
-    return { outcome: 'none', candidates: [], ocrName, ocrNumber: null, durationMs: Date.now() - started };
+  // Japanische Karten: Die englische Texterkennung liest ihren Namen nicht. Nur
+  // wenn die Nummer (oder ohne Nummer das Bild) auf japanische Karten zeigt,
+  // läuft zusätzlich die japanische; sie kostet sonst bei jedem Scan Rechenzeit.
+  // Ebenso, wenn der englisch gelesene Name zu keiner Karte passt.
+  const japaneseLikely =
+    byNumber.rows.some((row) => row.id.startsWith('ja-')) ||
+    byName.rows.length === 0 ||
+    (!number && visualTop.slice(0, 5).some((hit) => hit.cardId.startsWith('ja-')));
+  let japaneseName: string | null = null;
+  let byJapaneseName: { id: string }[] = [];
+  if (japaneseLikely) {
+    for (const variant of [Promise.resolve(regions.top), binarize(regions.top, 120)]) {
+      japaneseName = parseJapaneseName((await deps.ocr.recognize(await variant, { japanese: true })).text);
+      if (japaneseName) break;
+    }
+    if (japaneseName) {
+      byJapaneseName = (
+        await deps.db.query<{ id: string }>(
+          `select id from cards
+           where id like 'ja-%' and char_length(name) >= 2
+             and strpos($1, regexp_replace(normalize(name, NFD), '[\u3099\u309a]', '', 'g')) > 0
+           order by char_length(name) desc, id
+           limit 40`,
+          [foldJapanese(japaneseName)],
+        )
+      ).rows;
+    }
   }
 
-  const facts = await deps.db.query<{ id: string; number_sort: number | null; number: string | null; card_count: number; name_sim: number }>(
-    `select c.id, c.number_sort, c.number, s.card_count,
+  const ids = [
+    ...new Set([
+      ...visualTop.map((hit) => hit.cardId),
+      ...byNumber.rows.map((r) => r.id),
+      ...byName.rows.map((r) => r.id),
+      ...byJapaneseName.map((r) => r.id),
+    ]),
+  ];
+  const shownName = ocrName ?? japaneseName;
+  if (ids.length === 0) {
+    return { outcome: 'none', candidates: [], ocrName: shownName, ocrNumber: null, durationMs: Date.now() - started };
+  }
+
+  const facts = await deps.db.query<{ id: string; name: string; number_sort: number | null; number: string | null; card_count: number; name_sim: number }>(
+    `select c.id, c.name, c.number_sort, c.number, s.card_count,
             case when $2 = '' then 0 else word_similarity(lower(c.name), $2) end as name_sim
      from cards c join sets s on s.id = c.set_id
      where c.id = any($1::text[])`,
@@ -178,10 +225,13 @@ export async function identifyCard(
         cardId: row.id,
         numberSort: row.number_sort,
         total: printedTotal ? Number(printedTotal) : row.card_count,
-        nameSimilarity: Number(row.name_sim),
+        nameSimilarity:
+          japaneseName && row.id.startsWith('ja-')
+            ? Math.max(Number(row.name_sim), japaneseSimilarity(japaneseName, row.name))
+            : Number(row.name_sim),
         visualSimilarity: visual.get(row.id) ?? null,
       },
-      { number, hasName: nameQuery.length > 0 },
+      { number, hasName: nameQuery.length > 0 || japaneseName !== null },
     );
   });
 
@@ -189,7 +239,7 @@ export async function identifyCard(
   return {
     outcome,
     candidates,
-    ocrName,
+    ocrName: shownName,
     ocrNumber: number ? `${number.number}${number.total ? `/${number.total}` : ''}` : null,
     durationMs: Date.now() - started,
   };

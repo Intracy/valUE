@@ -104,13 +104,15 @@ export async function loadImage(url: string, timeoutMs = 15_000): Promise<Buffer
  * hellem Grund, weil Tesseract so am zuverlässigsten liest. Ist der Ausschnitt
  * überwiegend dunkel (helle Schrift), wird er umgekehrt.
  */
-export async function ocrRegions(input: Buffer): Promise<{ top: Buffer; bottom: Buffer }> {
+export async function ocrRegions(
+  input: Buffer,
+): Promise<{ top: Buffer; bottom: Buffer; numberLeft: Buffer; numberRight: Buffer }> {
   // Erst auf Normgröße bringen und als eigenes Bild ablegen, dann ausschneiden.
   const card = await sharp(input, { failOn: 'none' }).rotate().resize(630, 880, { fit: 'fill' }).png().toBuffer();
-  const prepare = async (top: number, height: number) => {
+  const prepare = async (top: number, height: number, left = 0, width = 630, scale = 2) => {
     const gray = await sharp(card)
-      .extract({ left: 0, top, width: 630, height })
-      .resize({ width: 1260 })
+      .extract({ left, top, width, height })
+      .resize({ width: width * scale })
       .greyscale()
       .normalise()
       .png()
@@ -120,8 +122,15 @@ export async function ocrRegions(input: Buffer): Promise<{ top: Buffer; bottom: 
     // Ohne sharpen(): In dieser sharp-Version macht es ein umgekehrtes Graubild schwarz.
     return (dark ? sharp(gray).negate({ alpha: false }) : sharp(gray)).toColourspace('b-w').png().toBuffer();
   };
-  const [top, bottom] = await Promise.all([prepare(14, 104), prepare(752, 112)]);
-  return { top, bottom };
+  // Die Nummer ist winzig: eigene, stärker vergrößerte Ausschnitte. Links unten
+  // steht sie bei neueren und japanischen Karten, rechts unten bei älteren.
+  const [top, bottom, numberLeft, numberRight] = await Promise.all([
+    prepare(14, 104),
+    prepare(752, 112),
+    prepare(800, 66, 0, 300, 4),
+    prepare(812, 64, 420, 210, 4),
+  ]);
+  return { top, bottom, numberLeft, numberRight };
 }
 
 /** Schwarz-Weiß-Fassung eines Ausschnitts. Hilft Tesseract bei Rauschen und Verläufen. */

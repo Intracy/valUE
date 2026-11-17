@@ -184,3 +184,121 @@ export async function bumpCatalogVersion(db: Queryable, version: string): Promis
     [version],
   );
 }
+
+/**
+ * Schreibt Katalogkarten (TCGdex). Preise bleiben unangetastet: Die kommen aus
+ * dem Preisabgleich, und ein Katalogabgleich darf sie nicht leeren.
+ */
+export async function upsertCatalogCards(db: Queryable, cards: SourceCard[]): Promise<void> {
+  if (cards.length === 0) return;
+  await db.query(
+    `insert into cards (id, set_id, name, number, number_sort, rarity, image_url, element, updated_at)
+     select id, set_id, name, number, number_sort, rarity, image_url, element, now()
+     from unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::int[], $6::text[], $7::text[], $8::text[])
+       as t (id, set_id, name, number, number_sort, rarity, image_url, element)
+     on conflict (id) do update set
+       set_id = excluded.set_id,
+       name = excluded.name,
+       number = excluded.number,
+       number_sort = excluded.number_sort,
+       rarity = coalesce(excluded.rarity, cards.rarity),
+       image_url = coalesce(excluded.image_url, cards.image_url),
+       element = coalesce(excluded.element, cards.element),
+       updated_at = now()`,
+    [
+      cards.map((card) => card.id),
+      cards.map((card) => card.setId),
+      cards.map((card) => card.name),
+      cards.map((card) => card.number),
+      cards.map((card) => numberSort(card.number)),
+      cards.map((card) => card.rarity),
+      cards.map((card) => card.imageUrl),
+      cards.map((card) => card.element ?? null),
+    ],
+  );
+  const printings = cards.flatMap((card) => card.printings.map((printing) => ({ cardId: card.id, printing: printing.printing })));
+  if (printings.length > 0) {
+    await db.query(
+      `insert into card_printings (card_id, printing)
+       select * from unnest($1::text[], $2::text[])
+       on conflict (card_id, printing) do nothing`,
+      [printings.map((row) => row.cardId), printings.map((row) => row.printing)],
+    );
+  }
+}
+
+/** Katalogkarten, auf die ein Preis mit dieser TCGdex-ID passt: englische und deutsche Fassung. */
+export const priceTargets = (externalId: string) => [`en-${externalId}`, `de-${externalId}`];
+
+/**
+ * Schreibt Preise aus Pokemon Price Tracker auf vorhandene Katalogkarten. Die
+ * Zuordnung läuft über `externalId` (die TCGdex-ID, bei PPT `externalCatalogId`).
+ * Karten ohne Gegenstück im Katalog werden übergangen, es entsteht keine neue Karte.
+ * Gibt die IDs der Katalogkarten zurück, die einen Preis bekommen haben.
+ */
+export async function applyPrices(db: Queryable, cards: SourceCard[]): Promise<string[]> {
+  const wanted = cards.flatMap((card) => (card.externalId ? priceTargets(card.externalId).map((id) => ({ id, card })) : []));
+  if (wanted.length === 0) return [];
+  const existing = new Set(
+    (await db.query<{ id: string }>('select id from cards where id = any($1::text[])', [wanted.map((row) => row.id)])).rows.map(
+      (row) => row.id,
+    ),
+  );
+  const rows = wanted.filter((row) => existing.has(row.id));
+  if (rows.length === 0) return [];
+
+  await db.query(
+    `update cards c set
+       market_price_usd = coalesce(t.market, c.market_price_usd),
+       low_price_usd = coalesce(t.low, c.low_price_usd),
+       price_updated_at = coalesce(t.updated, now()),
+       updated_at = now()
+     from unnest($1::text[], $2::numeric[], $3::numeric[], $4::timestamptz[]) as t (id, market, low, updated)
+     where c.id = t.id`,
+    [
+      rows.map((row) => row.id),
+      rows.map((row) => row.card.marketPriceUsd),
+      rows.map((row) => row.card.lowPriceUsd),
+      rows.map((row) => row.card.priceUpdatedAt),
+    ],
+  );
+
+  const printings = rows.flatMap((row) => row.card.printings.map((printing) => ({ cardId: row.id, ...printing })));
+  if (printings.length > 0) {
+    await db.query(
+      `insert into card_printings (card_id, printing, market_price_usd, low_price_usd)
+       select * from unnest($1::text[], $2::text[], $3::numeric[], $4::numeric[])
+       on conflict (card_id, printing) do update set
+         market_price_usd = excluded.market_price_usd,
+         low_price_usd = excluded.low_price_usd`,
+      [
+        printings.map((row) => row.cardId),
+        printings.map((row) => row.printing),
+        printings.map((row) => row.marketPriceUsd),
+        printings.map((row) => row.lowPriceUsd),
+      ],
+    );
+  }
+  await upsertHistory(
+    db,
+    rows.flatMap((row) => (row.card.history ?? []).map((point) => ({ cardId: row.id, ...point }))),
+  );
+  await upsertGrades(
+    db,
+    rows.flatMap((row) => (row.card.grades ?? []).map((grade) => ({ cardId: row.id, ...grade }))),
+  );
+  return rows.map((row) => row.id);
+}
+
+export async function upsertPriceSets(db: Queryable, sets: SourceSet[]): Promise<void> {
+  if (sets.length === 0) return;
+  await db.query(
+    `insert into price_sets (id, name, language, card_count, updated_at)
+     select id, name, language, coalesce(card_count, 0), now()
+     from unnest($1::text[], $2::text[], $3::text[], $4::int[]) as t (id, name, language, card_count)
+     on conflict (id) do update set
+       name = excluded.name, language = excluded.language,
+       card_count = greatest(excluded.card_count, price_sets.card_count), updated_at = now()`,
+    [sets.map((set) => set.id), sets.map((set) => set.name), sets.map((set) => set.language), sets.map((set) => set.cardCount)],
+  );
+}

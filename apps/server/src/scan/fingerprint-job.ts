@@ -1,4 +1,5 @@
 import type { Db } from '../db/pool.js';
+import { fingerprintImageUrl } from '../sources/tcgdex.js';
 import { bumpCatalogVersion } from '../sync/store.js';
 import { fingerprint, loadImage, quantize } from './image.js';
 
@@ -37,7 +38,7 @@ export async function computeMissingFingerprints(
       while (next < pending.rows.length) {
         const card = pending.rows[next++]!;
         try {
-          const vec = quantize(await fingerprint(await loadImage(card.image_url)));
+          const vec = quantize(await fingerprint(await loadImage(fingerprintImageUrl(card.image_url))));
           rows.push({ id: card.id, url: card.image_url, vec });
         } catch (error) {
           failed += 1;

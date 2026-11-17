@@ -4,15 +4,17 @@ import { join } from 'node:path';
 import { createWorker, PSM, type Worker } from 'tesseract.js';
 
 /**
- * Texterkennung mit Tesseract. Die Sprachdaten kommen aus dem npm-Paket
- * @tesseract.js-data/eng und werden nicht aus dem Netz geladen.
+ * Texterkennung mit Tesseract. Die Sprachdaten kommen aus den npm-Paketen
+ * @tesseract.js-data/eng und /jpn und werden nicht aus dem Netz geladen.
+ * Englisch liest auch deutsche Namen gut genug; Japanisch braucht eigene Daten.
  *
  * Tesseract braucht pro Bild einige hundert Millisekunden Rechenzeit. Ein kleiner
  * Pool aus Workern verteilt die Last; weitere Anfragen warten in einer Schlange.
  */
 
 const require = createRequire(import.meta.url);
-const langPath = join(require.resolve('@tesseract.js-data/eng/package.json'), '..', '4.0.0_best_int');
+const langPath = (language: 'eng' | 'jpn') =>
+  join(require.resolve(`@tesseract.js-data/${language}/package.json`), '..', '4.0.0_best_int');
 
 export interface OcrResult {
   text: string;
@@ -20,8 +22,11 @@ export interface OcrResult {
 }
 
 export interface OcrEngine {
-  /** `digits` beschränkt die Erkennung auf Ziffern und Schrägstrich, für die Kartennummer. */
-  recognize(image: Buffer, options?: { digits?: boolean }): Promise<OcrResult>;
+  /**
+   * `digits` beschränkt die Erkennung auf Ziffern und Schrägstrich, für die Kartennummer.
+   * `japanese` liest mit japanischen Sprachdaten, für Namen japanischer Karten.
+   */
+  recognize(image: Buffer, options?: { digits?: boolean; japanese?: boolean }): Promise<OcrResult>;
   close(): Promise<void>;
 }
 
@@ -30,15 +35,17 @@ interface Pool {
   close(): Promise<void>;
 }
 
-function createPool(size: number, digitsOnly: boolean): Pool {
+function createPool(size: number, mode: 'text' | 'digits' | 'japanese'): Pool {
+  const digitsOnly = mode === 'digits';
+  const language = mode === 'japanese' ? 'jpn' : 'eng';
   const idle: Worker[] = [];
   const waiting: ((worker: Worker) => void)[] = [];
   const all: Promise<Worker>[] = [];
   let closed = false;
 
   const spawn = async (): Promise<Worker> => {
-    const worker = await createWorker('eng', 1, {
-      langPath,
+    const worker = await createWorker(language, 1, {
+      langPath: langPath(language),
       gzip: true,
       cacheMethod: 'none',
       logger: () => undefined,
@@ -91,14 +98,18 @@ function createPool(size: number, digitsOnly: boolean): Pool {
   };
 }
 
-/** Zwei kleine Pools: einer für Text, einer nur für Ziffern. */
+/**
+ * Drei kleine Pools: Text, nur Ziffern, Japanisch. Worker entstehen erst beim
+ * ersten Bedarf; der japanische also nur, wenn japanische Karten gescannt werden.
+ */
 export function createOcrPool(size = 2): OcrEngine {
-  const text = createPool(size, false);
-  const digits = createPool(size, true);
+  const text = createPool(size, 'text');
+  const digits = createPool(size, 'digits');
+  const japanese = createPool(size, 'japanese');
   return {
-    recognize: (image, options = {}) => (options.digits ? digits : text).recognize(image),
+    recognize: (image, options = {}) => (options.digits ? digits : options.japanese ? japanese : text).recognize(image),
     close: async () => {
-      await Promise.all([text.close(), digits.close()]);
+      await Promise.all([text.close(), digits.close(), japanese.close()]);
     },
   };
 }
@@ -116,23 +127,78 @@ export function parseCardNumber(text: string): { number: number; total: number |
     const around = `${all[index - 1] ?? ''}${all[index + 1] ?? ''}`;
     return /[0-9/]/.test(around) ? DIGIT_FIXES[char]! : char;
   });
-  const withTotal = /(\d{1,3})\s*[/\\]\s*(\d{1,3})/.exec(cleaned);
+  // Nummer und Gesamtzahl in derselben Zeile; über einen Zeilenumbruch hinweg entstehen falsche Paare.
+  const withTotal = /(\d{1,3})[ \t]*[/\\][ \t]*(\d{1,3})/.exec(cleaned);
   if (withTotal) {
-    const number = Number(withTotal[1]);
+    let digits = withTotal[1]!;
     const total = Number(withTotal[2]);
+    // Ein Störzeichen vor der Nummer wird oft als Ziffer gelesen ("994/102" statt "4/102").
+    // Nummern weit über der Set-Größe gibt es nicht; dann vorne kürzen.
+    while (digits.length > 1 && Number(digits) > total * 1.6) digits = digits.slice(1);
+    const number = Number(digits);
     if (number > 0 && total > 0) return { number, total };
   }
   return null;
 }
 
-/** Der wahrscheinlichste Kartenname aus der oberen Zeile: längster Wortlauf aus Buchstaben. */
+/**
+ * Die Namenszeile als Suchtext: alle Zeilen mit Buchstaben, Ziffern am Zeilenende
+ * (Lebenspunkte) entfernt. Auf echten Karten stehen dort auch Stufe, "Entwickelt
+ * sich aus …" und Störzeichen; welche Zeile der Name ist, entscheidet erst der
+ * Vergleich mit dem Katalog (word_similarity sucht den Namen im ganzen Text).
+ */
 export function parseCardName(text: string): string | null {
   const runs = text
     .split(/\n/)
     .map((line) => line.replace(/[^\p{L}\p{N}' .-]/gu, ' ').replace(/\s+/g, ' ').trim())
-    .filter((line) => /\p{L}{3,}/u.test(line));
+    .filter((line) => /\p{L}{3,}/u.test(line))
+    .map((line) => line.replace(/\s*\d+\s*$/, '').trim())
+    .filter((line) => line.length >= 3);
   if (runs.length === 0) return null;
-  // Die längste Zeile mit Buchstaben ist meist der Name; Ziffern am Ende (Lebenspunkte) fallen weg.
-  const best = runs.sort((a, b) => b.length - a.length)[0]!.replace(/\s*\d+\s*$/, '').trim();
-  return best.length >= 3 ? best.slice(0, 60) : null;
+  return runs.join(' ').slice(0, 120);
+}
+
+/** Japanische Schriftzeichen: Hiragana, Katakana (mit Langvokal ー), Kanji. */
+const JAPANESE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff66-\uff9f]+/gu;
+
+/**
+ * Japanische Zeichen der Namenszeile, alle Zeilen aneinander. Tesseract setzt oft
+ * Leerzeichen zwischen Zeichen; die fallen weg.
+ */
+export function parseJapaneseName(text: string): string | null {
+  const runs = text
+    .split(/\n/)
+    .map((line) => (line.replace(/\s+/g, '').match(JAPANESE) ?? []).join(''))
+    .filter((run) => run.length >= 2);
+  return runs.length > 0 ? runs.join('').slice(0, 40) : null;
+}
+
+/**
+ * Ohne Dakuten und Handakuten (ボ → ホ, ポ → ホ): Die Texterkennung verwechselt
+ * die kleinen Zeichen oft, der Name bleibt dennoch erkennbar.
+ */
+export const foldJapanese = (value: string) => value.normalize('NFD').replace(/[\u3099\u309a]/g, '').normalize('NFC');
+
+/**
+ * Ähnlichkeit zweier japanischer Namen, 0 bis 1: Anteil gemeinsamer
+ * Zeichenpaare (Dice). Die Trigramm-Suche der Datenbank taugt für japanische
+ * Schrift nicht. Ein Name, der vollständig in der gelesenen Zeile steht, zählt voll.
+ */
+export function japaneseSimilarity(readText: string, cardName: string): number {
+  const read = foldJapanese(readText);
+  const name = foldJapanese(cardName);
+  if (!read || !name) return 0;
+  if (read.includes(name) && name.length >= 2) return 1;
+  const pairs = (value: string) => {
+    const out = new Map<string, number>();
+    for (let i = 0; i < value.length - 1; i += 1) out.set(value.slice(i, i + 2), (out.get(value.slice(i, i + 2)) ?? 0) + 1);
+    return out;
+  };
+  const a = pairs(read);
+  const b = pairs(name);
+  let shared = 0;
+  for (const [pair, count] of b) shared += Math.min(count, a.get(pair) ?? 0);
+  const total = Math.max(1, read.length - 1) + Math.max(1, name.length - 1);
+  // Bei sehr kurzen Namen ist die gelesene Zeile meist länger: am Namen messen, nicht an beiden.
+  return Math.min(1, Math.max((2 * shared) / total, shared / Math.max(1, name.length - 1)));
 }

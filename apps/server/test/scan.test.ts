@@ -6,7 +6,7 @@ import { buildApp } from '../src/http/app.js';
 import { computeMissingFingerprints } from '../src/scan/fingerprint-job.js';
 import { decide, scoreCandidate, SCORING } from '../src/scan/identify.js';
 import { createOcrPool } from '../src/scan/ocr.js';
-import { parseCardName, parseCardNumber } from '../src/scan/ocr.js';
+import { japaneseSimilarity, parseCardName, parseCardNumber, parseJapaneseName } from '../src/scan/ocr.js';
 import { resetData, testDb } from './helpers.js';
 import { syntheticPhoto } from './support/synthetic-photo.js';
 
@@ -19,10 +19,28 @@ describe('Lesen von Name und Nummer', () => {
     expect(parseCardNumber('0/12')).toBeNull();
   });
 
-  it('nimmt die längste Zeile mit Buchstaben als Namen und schneidet Zahlen am Ende ab', () => {
+  it('kürzt Störziffern vor der Nummer und verbindet keine Zeilen', () => {
+    expect(parseCardNumber('994/102')).toEqual({ number: 94, total: 102 });
+    expect(parseCardNumber('201/189')).toEqual({ number: 201, total: 189 });
+    expect(parseCardNumber('    1\n/102\n')).toBeNull();
+  });
+
+  it('nimmt alle Zeilen mit Buchstaben als Suchtext und schneidet Zahlen am Zeilenende ab', () => {
     expect(parseCardName(':   Kupferbach   :\n')).toBe('Kupferbach');
     expect(parseCardName('Abendrot 120\n')).toBe('Abendrot');
     expect(parseCardName('|| 7\n')).toBeNull();
+    // Echte Lesung einer deutschen Karte: Der Name steht nicht in der längsten Zeile.
+    expect(parseCardName('J LE ob fv SEN a REA CEA TAA flan LHR\nay Wiesenior -\n')).toBe(
+      'J LE ob fv SEN a REA CEA TAA flan LHR ay Wiesenior -',
+    );
+  });
+
+  it('liest japanische Namen und vergleicht sie ohne Dakuten', () => {
+    // Echte Lesung der Karte サボネア (SV1S 001): ボ als ポ gelesen, eine Zeile Störzeichen.
+    const read = parseJapaneseName('洋をサポネア                      。 w60⑳\n|  語る時問本ヘーージジー |\n');
+    expect(read).toBe('洋をサポネア語る時問本ヘーージジー');
+    expect(japaneseSimilarity(read!, 'サボネア')).toBe(1);
+    expect(japaneseSimilarity(read!, 'ノクタス')).toBe(0);
   });
 });
 
