@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import { evaluateAchievements, rankForLevel } from '../src/domain/achievements.js';
@@ -174,5 +176,37 @@ describe('Elemente, Grading und Abzeichen', () => {
     expect(at({ byElement: { water: 60 } }, 'element-water')).toMatchObject({ tier: 'silver', element: 'water' });
     expect(rankForLevel(1)).toBe('Einsteiger');
     expect(rankForLevel(42)).toBe('Legende');
+  });
+});
+
+describe('Echte Antworten von Pokemon Price Tracker', () => {
+  const load = (name: string) => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'));
+
+  it('bildet ein Set aus /sets ab, mit lesbarer ID statt Datenbank-ID', () => {
+    const [base] = load('ppt-sets.json').data;
+    expect(mapSet(base, 'english')).toEqual({
+      id: 'base-set', name: 'Base Set', series: 'Base Set', language: 'english', releaseDate: '1999-01-09', cardCount: 102,
+      imageUrl: 'https://tcgplayer-cdn.tcgplayer.com/set_icon/604BaseSet.png',
+    });
+  });
+
+  it('bildet eine Karte aus /cards mit Varianten, Element und Verlauf ab', () => {
+    const [raw] = load('ppt-card-base-set-4.json').data;
+    const card = mapCard(raw, { ...set, id: 'base-set', name: 'Base Set' });
+    expect(card).toMatchObject({
+      id: '42382', setId: 'base-set', name: 'Charizard', number: '004/102', rarity: 'Holo Rare',
+      imageUrl: 'https://tcgplayer-cdn.tcgplayer.com/product/42382_in_800x800.jpg',
+      marketPriceUsd: 1001.05, lowPriceUsd: 169.99, priceUpdatedAt: '2026-11-17T12:13:10.009Z', element: 'fire',
+    });
+    // Varianten nach Zustand: Near Mint ist der Preis der Variante.
+    expect(card?.printings).toEqual([{ printing: 'Holofoil', marketPriceUsd: 1001.05, lowPriceUsd: null }]);
+    expect(card?.history).toEqual([
+      { day: '2026-11-15', marketPriceUsd: 987.13 },
+      { day: '2026-11-16', marketPriceUsd: 1001.05 },
+      { day: '2026-11-17', marketPriceUsd: 1001.05 },
+    ]);
+    // Free-Tarif: keine eBay-Daten, also keine Noten.
+    expect(card?.grades).toEqual([]);
+    expect(rarityTier(card?.rarity)).toBe('holo');
   });
 });

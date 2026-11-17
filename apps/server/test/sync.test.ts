@@ -110,6 +110,7 @@ describe('Elemente, Grading und Population', () => {
         const result = await source.listCardsInSet(set);
         result.cards[0]!.element = 'fire';
         result.cards[0]!.grades = [{ grader: 'PSA', grade: '10', priceUsd: 99, population: null }];
+        result.cards[0]!.history = [{ day: '2026-10-30', marketPriceUsd: 0.5 }];
         return result;
       },
     };
@@ -118,6 +119,8 @@ describe('Elemente, Grading und Population', () => {
     await runApiSync(db, source, { ...options, setsRefreshHours: 1 });
     const card = await db.query(`select element from cards where id = 'klein-1'`);
     expect(card.rows[0].element).toBe('fire');
+    const past = await db.query(`select market_price_usd from price_history where card_id = 'klein-1' and day = '2026-10-30'`);
+    expect(past.rows).toEqual([{ market_price_usd: 0.5 }]);
     const grade = await db.query(`select grader, grade, price_usd, population from card_grades`);
     expect(grade.rows).toEqual([{ grader: 'PSA', grade: '10', price_usd: 99, population: null }]);
 

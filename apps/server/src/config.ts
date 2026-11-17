@@ -44,6 +44,8 @@ const schema = z.object({
    * nur Business-Tarif). 0 schaltet ihn ab.
    */
   SYNC_POPULATION_MAX_CARDS: z.coerce.number().int().nonnegative().default(0),
+  /** Preisverlauf so vieler Tage mitladen (1 Credit mehr je Karte; Free-Tarif höchstens 3). 0 = aus. */
+  SYNC_HISTORY_DAYS: z.coerce.number().int().nonnegative().default(0),
   /** Set-Liste höchstens so oft neu laden (kostet 1 Credit). */
   SYNC_SETS_REFRESH_HOURS: z.coerce.number().int().positive().default(168),
 });
@@ -84,6 +86,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
       setsRefreshHours: value.SYNC_SETS_REFRESH_HOURS,
       includeGraded: value.SYNC_INCLUDE_GRADED,
       populationMaxCards: value.SYNC_POPULATION_MAX_CARDS,
+      historyDays: value.SYNC_HISTORY_DAYS,
     },
   };
 }

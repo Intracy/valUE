@@ -75,6 +75,11 @@ export async function upsertCards(db: Queryable, cards: SourceCard[]): Promise<v
     ],
   );
 
+  await upsertHistory(
+    db,
+    cards.flatMap((card) => (card.history ?? []).map((point) => ({ cardId: card.id, ...point }))),
+  );
+
   await upsertGrades(
     db,
     cards.flatMap((card) => (card.grades ?? []).map((grade) => ({ cardId: card.id, ...grade }))),
@@ -98,6 +103,26 @@ export async function upsertCards(db: Queryable, cards: SourceCard[]): Promise<v
       ],
     );
   }
+}
+
+/**
+ * Schreibt Tagespreise der Vergangenheit aus der Quelle. Der heutige Stand kommt
+ * danach aus `snapshotPrices` und hat Vorrang.
+ */
+export async function upsertHistory(
+  db: Queryable,
+  points: { cardId: string; day: string; marketPriceUsd: number }[],
+): Promise<void> {
+  if (points.length === 0) return;
+  for (const day of new Set(points.map((point) => point.day))) {
+    await db.query('select ensure_price_history_partition($1::date)', [day]);
+  }
+  await db.query(
+    `insert into price_history (card_id, day, market_price_usd)
+     select * from unnest($1::text[], $2::date[], $3::numeric[])
+     on conflict (card_id, day) do update set market_price_usd = excluded.market_price_usd`,
+    [points.map((point) => point.cardId), points.map((point) => point.day), points.map((point) => point.marketPriceUsd)],
+  );
 }
 
 /**

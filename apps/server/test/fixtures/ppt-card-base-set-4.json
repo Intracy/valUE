@@ -1,0 +1,89 @@
+{
+  "_note": "Echte Antwort von GET /api/v2/cards?search=charizard&set=Base%20Set&limit=1&includeHistory=true&days=3 (Free-Tarif, 17.11.2026). Gekürzt: priceHistory.variants, prices.conditions und conditions entfernt, weil sie die gleichen Werte wie prices.variants und priceHistory.conditions wiederholen.",
+  "data": [
+    {
+      "id": "696f680f67063f37df823b8f",
+      "tcgPlayerId": "42382",
+      "setId": 604,
+      "setName": "Base Set",
+      "name": "Charizard",
+      "cardNumber": "004/102",
+      "totalSetNumber": null,
+      "rarity": "Holo Rare",
+      "cardType": "Pokemon",
+      "pokedexNumbers": [6],
+      "hp": "120",
+      "stage": "Stage 2",
+      "weakness": "W",
+      "resistance": "F-30",
+      "retreatCost": "3",
+      "artist": "Mitsuhiro Arita",
+      "pokemonType": "Fire",
+      "energyType": ["Fire"],
+      "tcgPlayerUrl": "https://www.tcgplayer.com/product/42382",
+      "prices": {
+        "market": 1001.05,
+        "low": 169.99,
+        "sellers": 83,
+        "listings": 155,
+        "recentSales": 0,
+        "primaryPrinting": "Holofoil",
+        "lastUpdated": "2026-11-17T12:13:10.009Z",
+        "variants": {
+          "Holofoil": {
+            "Heavily Played": { "price": 266.83, "listings": null, "priceString": "$266.83", "lastUpdated": "2026-11-17T00:00:00.000Z" },
+            "Near Mint": { "price": 1001.05, "listings": null, "priceString": "$1001.05", "lastUpdated": "2026-11-17T00:00:00.000Z" },
+            "Damaged": { "price": 209.94, "listings": null, "priceString": "$209.94", "lastUpdated": "2026-11-17T00:00:00.000Z" },
+            "Moderately Played": { "price": 363.14, "listings": null, "priceString": "$363.14", "lastUpdated": "2026-11-17T00:00:00.000Z" },
+            "Lightly Played": { "price": 523.23, "listings": null, "priceString": "$523.23", "lastUpdated": "2026-11-17T00:00:00.000Z" }
+          }
+        }
+      },
+      "imageCdnUrl": "https://tcgplayer-cdn.tcgplayer.com/product/42382_in_800x800.jpg",
+      "imageCdnUrl200": "https://tcgplayer-cdn.tcgplayer.com/product/42382_in_200x200.jpg",
+      "imageCdnUrl400": "https://tcgplayer-cdn.tcgplayer.com/product/42382_in_400x400.jpg",
+      "imageCdnUrl800": "https://tcgplayer-cdn.tcgplayer.com/product/42382_in_800x800.jpg",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/42382_in_200x200.jpg",
+      "dataCompleteness": "complete",
+      "lastScrapedAt": "2026-11-17T12:13:10.009Z",
+      "updatedAt": "2026-11-17T12:16:45.525Z",
+      "variants": {
+        "Holofoil": { "printing": "Holofoil", "marketPrice": 1001.05, "lowPrice": 169.99, "conditionUsed": "Near Mint Holofoil" }
+      },
+      "printingsAvailable": ["Holofoil"],
+      "externalCatalogId": "base1-4",
+      "priceHistory": {
+        "conditions": {
+          "Heavily Played": {
+            "history": [
+              { "date": "2026-11-15T00:00:00.000Z", "market": 265.9, "volume": 1, "marketRaw": 265.8 },
+              { "date": "2026-11-16T00:00:00.000Z", "market": 266.83, "volume": 1, "marketRaw": 265.9 },
+              { "date": "2026-11-17T00:00:00.000Z", "market": 266.83, "volume": null }
+            ],
+            "latestPrice": 266.83
+          },
+          "Near Mint": {
+            "history": [
+              { "date": "2026-11-15T00:00:00.000Z", "market": 987.13, "volume": null },
+              { "date": "2026-11-16T00:00:00.000Z", "market": 1001.05, "volume": 1, "marketRaw": 987.13 },
+              { "date": "2026-11-17T00:00:00.000Z", "market": 1001.05, "volume": null }
+            ],
+            "latestPrice": 1001.05
+          }
+        },
+        "totalDataPoints": 15,
+        "lastUpdated": "2026-11-17T12:30:14.284Z"
+      }
+    }
+  ],
+  "metadata": {
+    "total": 2,
+    "count": 1,
+    "limit": 1,
+    "offset": 0,
+    "hasMore": true,
+    "language": "english",
+    "includes": { "priceHistory": true, "ebayData": false, "cardmarketData": false },
+    "apiCallsConsumed": { "total": 2, "breakdown": { "cards": 1, "history": 1, "ebay": 0, "cardmarket": 0 }, "costPerCard": 2 }
+  }
+}

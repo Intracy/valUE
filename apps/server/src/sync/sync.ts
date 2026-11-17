@@ -18,6 +18,8 @@ export interface SyncOptions {
   sets: string[];
   language: string;
   maxCredits: number;
+  /** Credits je Karte; mit Preisverlauf 2 statt 1 (laut `metadata.apiCallsConsumed`). */
+  creditsPerCard?: number;
   setsRefreshHours: number;
   now?: () => Date;
   log?: (message: string) => void;
@@ -121,8 +123,8 @@ export async function runApiSync(db: Db, source: PriceSource, options: SyncOptio
           result.notes.push(`Set "${wanted}" steht nicht in der Set-Liste der Quelle.`);
           continue;
         }
-        // Ein Abruf kostet einen Credit je Karte. Unbekannte Größe vorsichtig schätzen.
-        const estimate = row.card_count > 0 ? row.card_count : 60;
+        // Ein Abruf kostet einen Credit je Karte (mit Verlauf zwei). Unbekannte Größe vorsichtig schätzen.
+        const estimate = (row.card_count > 0 ? row.card_count : 60) * (options.creditsPerCard ?? 1);
         if (estimate > budgetLeft()) {
           result.status = 'partial';
           result.notes.push(

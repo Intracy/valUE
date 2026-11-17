@@ -195,7 +195,8 @@ const styles = StyleSheet.create({
     gap: space.sm,
     paddingHorizontal: space.md,
   },
-  input: { flex: 1, minHeight: MIN_TOUCH, outlineWidth: 0 },
+  // Im Browser den Fokusrahmen des Felds weglassen; den Fokus zeigt der Rahmen außen.
+  input: { flex: 1, minHeight: MIN_TOUCH, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as object) : null) },
   controls: { gap: space.sm, marginBottom: space.md },
   list: { overflow: 'hidden' },
   hint: { flexDirection: 'row', alignItems: 'center', gap: space.md },

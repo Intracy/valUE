@@ -48,6 +48,8 @@ export interface SourceCard {
   element?: string | null;
   /** Preise gegradeter Exemplare, falls die Quelle sie mitliefert. */
   grades?: SourceGrade[];
+  /** Tagespreise der Vergangenheit (Near Mint), falls angefragt. */
+  history?: { day: string; marketPriceUsd: number }[];
 }
 
 export interface CreditUsage {

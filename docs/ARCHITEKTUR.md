@@ -116,6 +116,7 @@ Der Verlauf zeigt den heutigen Bestand zu den Preisen jedes Tages, wie bei Börs
 ### Grading und Elemente
 
 - **Element** kommt aus dem Kartenfeld der Quelle (`types`, `energyType` …) und wird auf elf feste Schlüssel abgebildet, englisch wie deutsch (`domain/elements.ts`). Fehlt es in einem Abgleich, bleibt der gespeicherte Wert.
+- **Geprüft am 17.11.2026** mit echten Antworten des Free-Tarifs: Sets (`/sets`), Karten mit Varianten, Element und Preisverlauf (`/cards?includeHistory=true`). Daraus ergaben sich zwei Korrekturen: Die Set-ID ist das lesbare `tcgPlayerId` („base-set“), nicht `id` (eine interne Datenbank-ID), und der Verlauf steckt in `priceHistory.conditions["Near Mint"].history`. Ein Karten-Abruf mit Verlauf kostet 2 Credits statt 1 (`SYNC_HISTORY_DAYS`, Free-Tarif höchstens 3 Tage). `/population` antwortet im Free-Tarif mit 403 „Business subscription required“.
 - **Preise je Note** lädt der Abgleich mit `SYNC_INCLUDE_GRADED=true` über `includeEbay=true` mit. Belegt ist in der API-Referenz nur `ebay.psa10.avg`; die Zuordnung probiert weitere Hüllen und Preisfelder. Vor dem ersten echten Lauf mit `ppt:probe` prüfen.
 - **Population** kommt aus `GET /population` (nur Business-Tarif, 2 Credits je Karte). `SYNC_POPULATION_MAX_CARDS` legt fest, wie viele Karten je Lauf; zuerst die, die jemand besitzt oder beobachtet, und davon die wertvollsten. Ein Bericht gilt eine Woche. Preis und Population landen in derselben Tabelle `card_grades`, ohne sich gegenseitig zu überschreiben.
 

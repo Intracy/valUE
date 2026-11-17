@@ -95,7 +95,9 @@ export default function SetScreen() {
   if (set.isPending) return <LoadingView />;
   if (set.error) return <ErrorView error={set.error} onRetry={() => void set.refetch()} />;
 
-  const total = set.data.cards.length;
+  // Größe laut Katalog: Solange der Abgleich nicht alle Karten eines Sets geladen hat,
+  // zählt die gemeldete Kartenzahl, damit das Set nicht vorschnell als vollständig gilt.
+  const total = Math.max(set.data.set.cardCount, set.data.cards.length);
   const have = set.data.cards.reduce((count, card) => count + (owned.has(card.id) ? 1 : 0), 0);
   const missingValue = set.data.cards.reduce(
     (sum, card) => (owned.has(card.id) || !card.price ? sum : sum + card.price.amount),
@@ -131,7 +133,11 @@ export default function SetScreen() {
               {percent} %
             </AppText>
           </View>
-          {have < total ? (
+          {set.data.cards.length < total ? (
+            <AppText variant="footnote" tone="secondary">
+              {total - set.data.cards.length} Karten noch nicht abgeglichen
+            </AppText>
+          ) : have < total ? (
             <AppText variant="footnote" tone="secondary">
               Fehlende zusammen {formatMoney({ amount: Math.round(missingValue * 100) / 100, currency })}
             </AppText>

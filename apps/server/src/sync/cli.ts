@@ -37,11 +37,13 @@ try {
             apiKey: config.ppt.apiKey,
             baseUrl: config.ppt.baseUrl,
             includeGraded: config.sync.includeGraded,
+            historyDays: config.sync.historyDays,
           }),
           {
             sets: config.sync.sets,
             language: config.sync.language,
             maxCredits: config.sync.maxCreditsPerRun,
+            creditsPerCard: config.sync.historyDays > 0 ? 2 : 1,
             setsRefreshHours: config.sync.setsRefreshHours,
             log,
           },

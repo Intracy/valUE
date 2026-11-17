@@ -162,7 +162,7 @@ Im Expo-Terminal öffnet <kbd>w</kbd> den Browser, <kbd>i</kbd> den iOS-Simulato
    ```bash
    npm run ppt:probe -w @value/server
    ```
-   Die API-Referenz beschreibt die Antworten von `/sets` und `/cards` nur teilweise. Das Skript zeigt die echten Feldnamen und meldet, was der Server nicht findet.
+   Sets und Karten sind gegen echte Antworten geprüft (Testvorlagen in `apps/server/test/fixtures`). Das Skript zeigt die echten Feldnamen und meldet, was der Server nicht findet, etwa bei gegradeten Preisen, die der Free-Tarif nicht liefert.
 3. Abgleich starten:
    ```bash
    npm run sync
@@ -174,7 +174,7 @@ Der kostenlose Tarif hat 100 Credits am Tag, ein Set kostet einen Credit je Kart
 
 ```bash
 npm run typecheck      # Server, App und Vertrag
-npm test               # 48 Servertests gegen PostgreSQL, darunter Scanner mit simulierten Fotos
+npm test               # 50 Servertests gegen PostgreSQL, darunter Scanner mit simulierten Fotos
 ```
 
 Lasttest mit **50.000 Karten, 10.000 Nutzern und 3 Mio. Sammlungseinträgen** auf einer Maschine mit 2 Kernen, ohne Fehler:
@@ -221,7 +221,8 @@ graphify/            Wissensgraph des Repositorys zur Orientierung (siehe graphi
 - [x] Scanner mit Nachfrage und Auswahl bei Unsicherheit
 - [x] Design nach Moodboard: Dark und Light Theme, Portfolio, Markt, Achievements, Elemente, Grading
 - [ ] Erster Lauf im iOS-Simulator und auf Android
-- [ ] Zuordnung gegen die echte API prüfen, erster echter Abgleich
+- [x] Zuordnung gegen die echte API geprüft: Sets, Karten, Varianten, Element, Preisverlauf
+- [ ] Erster vollständiger Abgleich; gegradete Preise und Population mit Business-Tarif prüfen
 - [ ] Scanner an echten Fotos messen, gelerntes Bildmodell
 - [ ] Anmeldung, Abo und Einmalkauf
 - [ ] Euro-Preise von Cardmarket; Graded-Preise und Population mit echtem Tarif prüfen
