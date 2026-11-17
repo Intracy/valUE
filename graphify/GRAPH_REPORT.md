@@ -1,12 +1,17 @@
 # Graph Report - value  (2026-11-17)
 
 ## Corpus Check
-- Corpus is ~34,324 words - fits in a single context window. You may not need a graph.
+- cluster-only mode — file stats not available
 
 ## Summary
 - 739 nodes · 1701 edges · 57 communities (29 shown, 28 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 43 edges (avg confidence: 0.84)
 - Token cost: 0 input · 0 output
+
+## Graph Freshness
+- Built from commit: `87d8217d`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - App-Bildschirme & Queries
@@ -70,21 +75,21 @@
 1. `usePalette()` - 39 edges
 2. `AppText()` - 27 edges
 3. `react-native` - 24 edges
-4. `KarteScreen()` - 17 edges
-5. `Db` - 17 edges
+4. `Db` - 17 edges
+5. `KarteScreen()` - 17 edges
 6. `SammlungScreen()` - 15 edges
-7. `ScanScreen()` - 15 edges
-8. `SetScreen()` - 15 edges
-9. `MessageView()` - 14 edges
-10. `ErrorView()` - 14 edges
+7. `SetScreen()` - 15 edges
+8. `ScanScreen()` - 15 edges
+9. `ErrorView()` - 14 edges
+10. `MessageView()` - 14 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `App ruft Anbieter nie direkt` --rationale_for--> `PriceSource`  [INFERRED]
   docs/ARCHITEKTUR.md → apps/server/src/sources/price-source.ts
-- `Ergebnisse: eindeutig / unsicher / nichts` --implements--> `ScanOutcome`  [INFERRED]
-  docs/SCANNER.md → apps/server/src/scan/identify.ts
 - `Credit-Budget je Lauf` --references--> `CreditUsage`  [INFERRED]
   docs/ARCHITEKTUR.md → apps/server/src/sources/price-source.ts
+- `Ergebnisse: eindeutig / unsicher / nichts` --implements--> `ScanOutcome`  [INFERRED]
+  docs/SCANNER.md → apps/server/src/scan/identify.ts
 - `Bild-Fingerabdruck (Farbraster + Kanten)` --implements--> `fingerprint()`  [EXTRACTED]
   docs/SCANNER.md → apps/server/src/scan/image.ts
 - `Props` --references--> `CardSummary`  [EXTRACTED]
@@ -94,9 +99,9 @@
 - None detected.
 
 ## Hyperedges (group relationships)
-- **Scan-Erkennungspipeline** — scan_fingerprint, scan_ocr_tesseract, scan_signal_weighting, apps_server_src_scan_identify, apps_server_src_scan_ocr, apps_server_src_scan_image [EXTRACTED 1.00]
 - **Katalog-Abgleich mit Pokemon Price Tracker** — arch_sync_process, arch_sync_mode, arch_credit_budget, arch_sync_runs, apps_server_src_sync_sync, apps_server_src_sources_price_source [EXTRACTED 1.00]
 - **Skalierungsentscheidungen** — arch_stateless_api, arch_etag_cdn, arch_partition_collection, arch_partition_price_history, arch_batch_unnest, arch_server_only_provider [EXTRACTED 1.00]
+- **Scan-Erkennungspipeline** — scan_fingerprint, scan_ocr_tesseract, scan_signal_weighting, apps_server_src_scan_identify, apps_server_src_scan_ocr, apps_server_src_scan_image [EXTRACTED 1.00]
 
 ## Communities (57 total, 28 thin omitted)
 
@@ -217,7 +222,7 @@ Cohesion: 0.38
 Nodes (6): demoCardSvg(), demoNames, DemoTheme, demoThemes, escapeXml(), random()
 
 ## Knowledge Gaps
-- **13 isolated node(s):** `expo/tsconfig.base`, `./tsconfig.json`, `Anmeldung, Abo & Einmalkauf (geplant)`, `Achievements & Profil-Schmuck (geplant)`, `Lasttest (50k Karten, 10k Nutzer)` (+8 more)
+- **13 isolated node(s):** `expo/tsconfig.base`, `./tsconfig.json`, `Rate-Limit-Zähler in Redis (offen)`, `Scan-Benchmark mit simulierten Fotos`, `Gelerntes Bildmodell (CLIP) – nächster Schritt` (+8 more)
   These have ≤1 connection - possible missing edges. (Counts symbols only; 270 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **28 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -226,7 +231,7 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `react-native` connect `App-Bildschirme & Queries` to `Scanner (App)`, `App-Dev-Abhängigkeiten`, `App-Abhängigkeiten`, `API-Server & Endpunkte`?**
   _High betweenness centrality (0.050) - this node is a cross-community bridge._
-- **What connects `expo/tsconfig.base`, `./tsconfig.json`, `Anmeldung, Abo & Einmalkauf (geplant)` to the rest of the system?**
+- **What connects `expo/tsconfig.base`, `./tsconfig.json`, `Rate-Limit-Zähler in Redis (offen)` to the rest of the system?**
   _13 weakly-connected nodes found - possible missing edges._
 - **Should `App-Bildschirme & Queries` be split into smaller, more focused modules?**
   _Cohesion score 0.05544662309368192 - nodes in this community are weakly interconnected._

@@ -1,0 +1,4 @@
+# Graphify-Ausgaben: erzeugt, nicht in Sprachstatistik und Diffs
+graphify/graph.json linguist-generated=true -diff
+graphify/graph.html linguist-generated=true -diff
+graphify/GRAPH_REPORT.md linguist-generated=true
