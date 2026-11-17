@@ -86,12 +86,14 @@ if [ -z "$TAILSCALE" ]; then
   find /var/packages/Tailscale/target/ -maxdepth 2 -name 'tailscale*' 2>&1 | sed 's/^/    /' || true
 else
   log "Tailscale: $TAILSCALE"
-  if serve_out="$("$TAILSCALE" serve --bg --https="$TAILSCALE_PORT" "http://127.0.0.1:$WEB_PORT" 2>&1)"; then
+  # Ist Serve im Tailnet noch nicht freigeschaltet, wartet der Befehl sonst
+  # unbegrenzt und blockiert die Aufgabe. Er gibt dann einen Freischalt-Link aus.
+  if serve_out="$(timeout 30 "$TAILSCALE" serve --bg --https="$TAILSCALE_PORT" "http://127.0.0.1:$WEB_PORT" 2>&1)"; then
     name="$("$TAILSCALE" status --json 2>/dev/null | sed -n 's/.*"DNSName": *"\([^"]*\)\.".*/\1/p' | head -1)"
     log "Im Tailnet: https://${name:-<NAS-Name>.<tailnet>.ts.net}:$TAILSCALE_PORT"
   else
     log "Tailscale Serve nicht möglich: $serve_out"
-    log "Meist fehlt im Tailscale-Admin unter DNS die Option \"HTTPS Certificates\"."
+    log "Freischalten über den Link oben oder im Tailscale-Admin unter DNS: \"HTTPS Certificates\" aktivieren."
     log "Ohne HTTPS: http://<Tailscale-IP der NAS>:$WEB_PORT (Kamera-Scan geht dann nicht)."
   fi
 fi
