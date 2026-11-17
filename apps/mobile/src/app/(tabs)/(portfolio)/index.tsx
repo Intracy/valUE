@@ -9,7 +9,7 @@ import { usePortfolio, useProfile } from '@/api/queries';
 import { AppText } from '@/components/app-text';
 import { CardRow } from '@/components/card-row';
 import { AreaChart } from '@/components/charts';
-import { FxNote, Price, useMoney } from '@/components/currency';
+import { Price, useMoney } from '@/components/currency';
 import { formatCount, formatDate } from '@/components/format';
 import { Wordmark } from '@/components/holo';
 import { ErrorView, LoadingView } from '@/components/states';
@@ -114,7 +114,6 @@ export default function PortfolioScreen() {
               {money({ amount: Math.abs(data.change.amount), currency: data.value.currency }).replace('≈ ', '')} {current.long}
             </AppText>
           ) : null}
-          <FxNote money={data.value} />
         </View>
 
         <AreaChart

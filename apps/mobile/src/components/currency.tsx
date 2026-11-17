@@ -7,7 +7,7 @@ import { useExchangeRate } from '@/api/queries';
 import type { TextVariant } from '@/theme/theme';
 
 import { AppText, type AppTextProps } from './app-text';
-import { formatDate, formatMoney } from './format';
+import { formatMoney } from './format';
 import { tapFeedback } from './haptics';
 
 /**
@@ -43,10 +43,9 @@ interface CurrencyState {
   toggle: () => void;
   /** Euro je Dollar, null solange kein Kurs da ist. */
   rate: number | null;
-  rateDate: string | null;
 }
 
-const CurrencyContext = createContext<CurrencyState>({ display: 'original', toggle: () => undefined, rate: null, rateDate: null });
+const CurrencyContext = createContext<CurrencyState>({ display: 'original', toggle: () => undefined, rate: null });
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [display, setDisplay] = useState<Display>('original');
@@ -72,7 +71,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ display, toggle, rate: fx.data?.rate ?? null, rateDate: fx.data?.date ?? null }),
+    () => ({ display, toggle, rate: fx.data?.rate ?? null }),
     [display, toggle, fx.data],
   );
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
@@ -139,19 +138,5 @@ export function Price({ money, variant = 'headline', style, ...rest }: PriceProp
       style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
       {label}
     </Pressable>
-  );
-}
-
-/** Kurzer Hinweis unter einem umgerechneten Preis: Kurs und Stand. */
-export function FxNote({ money }: { money: Money | null | undefined }) {
-  const { display, rate, rateDate } = useCurrency();
-  if (money?.currency !== 'USD' || !rate) return null;
-  const rateText = rate.toLocaleString('de-DE', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-  return (
-    <AppText variant="caption" tone="secondary">
-      {display === 'EUR'
-        ? `Umgerechnet: 1 $ = ${rateText} € (EZB, ${formatDate(rateDate)}). Tippen für Dollar.`
-        : 'Preis in Dollar. Tippen rechnet in Euro um.'}
-    </AppText>
   );
 }

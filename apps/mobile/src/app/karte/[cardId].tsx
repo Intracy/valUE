@@ -9,7 +9,7 @@ import { Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-
 import { useCard, useFavorites, useOwnedInSet, useSetQuantity, useToggleFavorite } from '@/api/queries';
 import { AppText } from '@/components/app-text';
 import { AreaChart } from '@/components/charts';
-import { FxNote, Price, useMoney } from '@/components/currency';
+import { Price, useMoney } from '@/components/currency';
 import { formatCount, formatDate } from '@/components/format';
 import { successFeedback, tapFeedback } from '@/components/haptics';
 import { HoloFill } from '@/components/holo';
@@ -156,7 +156,6 @@ export default function KarteScreen() {
                 Stand {formatDate(data.priceUpdatedAt)}
               </AppText>
             ) : null}
-            <FxNote money={mode === 'Raw' ? data.price : (top?.price ?? null)} />
           </View>
 
           {mode === 'Raw' ? (
