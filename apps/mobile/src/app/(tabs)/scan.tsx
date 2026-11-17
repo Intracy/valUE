@@ -28,6 +28,7 @@ import { MessageView } from '@/components/states';
 import { centerCardCrop, guideRect, previewToPhoto } from '@/scan/geometry';
 import { preparePhoto } from '@/scan/prepare-photo';
 import { ResultSheet } from '@/scan/result-sheet';
+import { liveCameraAvailable, takeSystemPhoto } from '@/scan/system-camera';
 import { radius, space } from '@/theme/theme';
 import { useHolo } from '@/theme/use-palette';
 
@@ -35,6 +36,8 @@ import { useHolo } from '@/theme/use-palette';
 const TAB_BAR = Platform.select({ ios: 49, android: 80, default: 0 });
 /** Im Browser ragt der runde Kamera-Knopf der Leiste ins Bild; der Auslöser hält Abstand. */
 const RAISED_TAB = Platform.OS === 'web' ? 32 : 0;
+/** Ohne HTTPS gibt es im Browser keine Live-Kamera; dann fotografiert die Systemkamera. */
+const LIVE_CAMERA = liveCameraAvailable();
 
 type Phase =
   | { kind: 'live' }
@@ -90,7 +93,19 @@ export default function ScanScreen() {
     }
   };
 
+  const captureWithSystemCamera = async () => {
+    if (phase.kind !== 'live') return;
+    tapFeedback();
+    try {
+      const photo = await takeSystemPhoto();
+      if (photo) await identify(await preparePhoto(photo.uri, centerCardCrop(photo)));
+    } catch (error) {
+      setPhase({ kind: 'error', message: messageFor(error) });
+    }
+  };
+
   const capture = async () => {
+    if (!LIVE_CAMERA) return captureWithSystemCamera();
     if (phase.kind !== 'live') return;
     if (!camera.current || !layout || !guide) {
       setPhase({ kind: 'error', message: 'Die Kamera ist noch nicht bereit. Versuche es gleich noch einmal.' });
@@ -146,8 +161,8 @@ export default function ScanScreen() {
   const measure = (event: { nativeEvent: { layout: LayoutRectangle } }) => setLayout(event.nativeEvent.layout);
 
   // Kamerazugriff noch offen oder verweigert.
-  if (!permission) return <View style={styles.black} onLayout={measure} />;
-  if (!permission.granted) {
+  if (LIVE_CAMERA && !permission) return <View style={styles.black} onLayout={measure} />;
+  if (LIVE_CAMERA && permission && !permission.granted) {
     return (
       <View style={[styles.fill, { paddingBottom: insets.bottom + TAB_BAR }]} onLayout={measure}>
         <MessageView
@@ -167,10 +182,11 @@ export default function ScanScreen() {
   }
 
   const live = phase.kind === 'live';
+  const shutterReady = ready || !LIVE_CAMERA;
 
   return (
     <View style={styles.black} onLayout={measure}>
-      {focused ? (
+      {focused && LIVE_CAMERA ? (
         <CameraView
           ref={camera}
           style={StyleSheet.absoluteFill}
@@ -182,14 +198,22 @@ export default function ScanScreen() {
         />
       ) : null}
 
-      {guide ? <GuideOverlay guide={guide} highlight={phase.kind === 'processing'} /> : null}
+      {guide && LIVE_CAMERA ? <GuideOverlay guide={guide} highlight={phase.kind === 'processing'} /> : null}
 
       <View style={[styles.hint, { top: insets.top + space.md }]} pointerEvents="none">
         <AppText variant="headline" style={styles.light}>
-          {phase.kind === 'processing' ? 'Karte wird erkannt …' : 'Karte in den Rahmen legen'}
+          {phase.kind === 'processing'
+            ? 'Karte wird erkannt …'
+            : LIVE_CAMERA
+              ? 'Karte in den Rahmen legen'
+              : 'Karte fotografieren'}
         </AppText>
         <AppText variant="footnote" style={styles.lightSecondary}>
-          {phase.kind === 'processing' ? 'Einen Moment' : 'Gleichmäßiges Licht, keine Spiegelung'}
+          {phase.kind === 'processing'
+            ? 'Einen Moment'
+            : LIVE_CAMERA
+              ? 'Gleichmäßiges Licht, keine Spiegelung'
+              : 'Auslöser tippen, Karte bildfüllend aufnehmen'}
         </AppText>
       </View>
 
@@ -202,11 +226,11 @@ export default function ScanScreen() {
         />
         <Pressable
           onPress={capture}
-          disabled={!live || !ready}
+          disabled={!live || !shutterReady}
           accessibilityRole="button"
           accessibilityLabel="Foto aufnehmen und Karte erkennen"
-          accessibilityState={{ disabled: !live || !ready, busy: phase.kind === 'processing' }}
-          style={({ pressed }) => [(pressed || !ready) && { opacity: 0.6 }]}>
+          accessibilityState={{ disabled: !live || !shutterReady, busy: phase.kind === 'processing' }}
+          style={({ pressed }) => [(pressed || !shutterReady) && { opacity: 0.6 }]}>
           <HoloFill style={styles.shutter}>
             <View style={styles.shutterInner}>
               {phase.kind === 'processing' ? <ActivityIndicator color="#0B0D17" /> : null}
