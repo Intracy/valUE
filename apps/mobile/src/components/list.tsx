@@ -13,11 +13,11 @@ export function Section({ title, footer, children }: { title?: string; footer?: 
   return (
     <View style={styles.section}>
       {title ? (
-        <AppText variant="footnote" tone="secondary" style={styles.sectionTitle} accessibilityRole="header">
-          {title.toUpperCase()}
+        <AppText variant="title3" style={styles.sectionTitle} accessibilityRole="header">
+          {title}
         </AppText>
       ) : null}
-      <View style={[styles.sectionBody, { backgroundColor: colors.surface }]}>{children}</View>
+      <View style={[styles.sectionBody, { backgroundColor: colors.surface, borderColor: colors.border }]}>{children}</View>
       {footer ? (
         <AppText variant="footnote" tone="secondary" style={styles.sectionFooter}>
           {footer}
@@ -82,9 +82,9 @@ export function Row({ title, subtitle, value, onPress, isLast, children }: RowPr
 
 const styles = StyleSheet.create({
   section: { marginBottom: space.lg },
-  sectionTitle: { marginHorizontal: space.md, marginBottom: space.sm },
+  sectionTitle: { marginTop: space.md, marginBottom: space.sm },
   sectionFooter: { marginHorizontal: space.md, marginTop: space.sm },
-  sectionBody: { borderRadius: radius.md, overflow: 'hidden' },
+  sectionBody: { borderRadius: radius.lg, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
   row: {
     minHeight: MIN_TOUCH,
     marginLeft: space.md,

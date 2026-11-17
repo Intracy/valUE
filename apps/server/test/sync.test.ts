@@ -4,6 +4,7 @@ import { PokemonPriceTrackerSource } from '../src/sources/pokemon-price-tracker.
 import { exportPrintingRows } from '../src/sources/ppt-export.js';
 import type { PriceSource, SourceCard, SourceSet } from '../src/sources/price-source.js';
 import { SourceError } from '../src/sources/price-source.js';
+import { runPopulationSync } from '../src/sync/population.js';
 import { runApiSync, runExportSync } from '../src/sync/sync.js';
 import { resetData, testDb } from './helpers.js';
 
@@ -97,6 +98,54 @@ describe('Abgleich über Einzelabrufe', () => {
     expect(result.status).toBe('failed');
     const run = await db.query(`select status, note from sync_runs where id = $1`, [result.runId]);
     expect(run.rows[0]).toMatchObject({ status: 'failed', note: expect.stringContaining('401') });
+  });
+});
+
+describe('Elemente, Grading und Population', () => {
+  it('schreibt Element und gegradete Preise, ohne vorhandene Werte zu löschen', async () => {
+    const { source } = fakeSource();
+    const withExtras: PriceSource = {
+      ...source,
+      async listCardsInSet(set) {
+        const result = await source.listCardsInSet(set);
+        result.cards[0]!.element = 'fire';
+        result.cards[0]!.grades = [{ grader: 'PSA', grade: '10', priceUsd: 99, population: null }];
+        result.cards[0]!.history = [{ day: '2026-10-30', marketPriceUsd: 0.5 }];
+        return result;
+      },
+    };
+    await runApiSync(db, withExtras, options);
+    // Zweiter Lauf ohne Element und Noten: Gespeichertes bleibt.
+    await runApiSync(db, source, { ...options, setsRefreshHours: 1 });
+    const card = await db.query(`select element from cards where id = 'klein-1'`);
+    expect(card.rows[0].element).toBe('fire');
+    const past = await db.query(`select market_price_usd from price_history where card_id = 'klein-1' and day = '2026-10-30'`);
+    expect(past.rows).toEqual([{ market_price_usd: 0.5 }]);
+    const grade = await db.query(`select grader, grade, price_usd, population from card_grades`);
+    expect(grade.rows).toEqual([{ grader: 'PSA', grade: '10', price_usd: 99, population: null }]);
+
+    // Population nur für Karten, die jemand besitzt; Preis bleibt dabei erhalten.
+    const user = await db.query<{ id: string }>(`insert into users (token_hash) values ('\\x01') returning id`);
+    await db.query(`insert into collection_items (user_id, card_id, quantity) values ($1, 'klein-1', 1)`, [user.rows[0]!.id]);
+    const asked: string[][] = [];
+    const population: PriceSource = {
+      ...source,
+      async fetchPopulation(ids) {
+        asked.push(ids);
+        return {
+          grades: new Map(ids.map((id) => [id, [{ grader: 'PSA' as const, grade: '10', priceUsd: null, population: 142 }]])),
+          credits: { consumed: ids.length * 2, dailyRemaining: null },
+        };
+      },
+    };
+    const result = await runPopulationSync(db, population, { maxCards: 10, language: 'english' });
+    expect(asked).toEqual([['klein-1']]);
+    expect(result).toMatchObject({ cards: 1, creditsUsed: 2 });
+    const merged = await db.query(`select price_usd, population from card_grades where card_id = 'klein-1'`);
+    expect(merged.rows).toEqual([{ price_usd: 99, population: 142 }]);
+    // Frisch: Ein zweiter Lauf fragt nicht erneut.
+    await runPopulationSync(db, population, { maxCards: 10, language: 'english' });
+    expect(asked).toHaveLength(1);
   });
 });
 

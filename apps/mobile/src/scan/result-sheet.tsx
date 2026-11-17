@@ -5,7 +5,10 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
-import { formatMoney } from '@/components/format';
+import { useMoney } from '@/components/currency';
+import { HoloFill } from '@/components/holo';
+import { rarityTier } from '@/components/rarity';
+import { ElementBadge, Stars } from '@/components/ui';
 import { CARD_ASPECT, MAX_CONTENT_WIDTH, MIN_TOUCH, radius, space } from '@/theme/theme';
 import { usePalette } from '@/theme/use-palette';
 
@@ -43,6 +46,7 @@ const matchLabel = (confidence: number) =>
  */
 export function ResultSheet({ result, busy, error, bottomInset, onConfirm, onRetry, onSearch, onClose }: Props) {
   const colors = usePalette();
+  const money = useMoney();
   const [step, setStep] = useState<Step>(() => initialStep(result));
   const [printing, setPrinting] = useState(() => (step.kind === 'confirm' ? defaultPrinting(step.candidate) : ''));
 
@@ -58,12 +62,16 @@ export function ResultSheet({ result, busy, error, bottomInset, onConfirm, onRet
     content = (
       <>
         <AppText variant="title3" accessibilityRole="header">
-          Ist das deine Karte?
+          {result.outcome === 'match' && candidate === result.candidates[0] ? 'Karte erkannt' : 'Ist das deine Karte?'}
         </AppText>
         <View style={styles.cardRow}>
           <Thumb candidate={candidate} width={96} />
           <View style={styles.cardFacts}>
             <AppText variant="headline">{candidate.name}</AppText>
+            <View style={styles.badges}>
+              {candidate.element ? <ElementBadge element={candidate.element} size={18} label /> : null}
+              <Stars tier={rarityTier(candidate.rarity)} />
+            </View>
             <AppText variant="subheadline" tone="secondary">
               {candidate.setName}
             </AppText>
@@ -72,11 +80,11 @@ export function ResultSheet({ result, busy, error, bottomInset, onConfirm, onRet
               {candidate.rarity ? ` · ${candidate.rarity}` : ''}
             </AppText>
             <AppText variant="headline" style={styles.price}>
-              {formatMoney(candidate.price)}
+              {money(candidate.price)}
             </AppText>
             {result.outcome !== 'match' || candidate !== result.candidates[0] ? null : (
               <AppText variant="footnote" tone="positive">
-                Sicher erkannt
+                ✓ Sicher erkannt. Stimmt das?
               </AppText>
             )}
           </View>
@@ -100,7 +108,7 @@ export function ResultSheet({ result, busy, error, bottomInset, onConfirm, onRet
                       styles.chip,
                       { borderColor: selected ? colors.tint : colors.separator, backgroundColor: selected ? colors.tint : 'transparent' },
                     ]}>
-                    <AppText variant="subheadline" style={selected ? styles.chipSelected : undefined}>
+                    <AppText variant="subheadline" style={selected ? [styles.chipSelected, { color: colors.background }] : undefined}>
                       {name}
                     </AppText>
                   </Pressable>
@@ -205,16 +213,19 @@ function Thumb({ candidate, width }: { candidate: ScanCandidate; width: number }
   );
 }
 
+/** Haupt-Aktion im Holo-Verlauf, wie "Speichern" im Moodboard. */
 function PrimaryButton({ label, onPress, busy }: { label: string; onPress: () => void; busy?: boolean }) {
-  const colors = usePalette();
   return (
     <Pressable
       onPress={onPress}
       disabled={busy}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ busy: Boolean(busy) }}
-      style={({ pressed }) => [styles.primary, { backgroundColor: colors.tint, opacity: pressed || busy ? 0.7 : 1 }]}>
-      {busy ? <ActivityIndicator color="#FFFFFF" /> : <AppText variant="headline" style={styles.primaryLabel}>{label}</AppText>}
+      style={({ pressed }) => [styles.primaryWrap, { opacity: pressed || busy ? 0.75 : 1 }]}>
+      <HoloFill style={styles.primary}>
+        {busy ? <ActivityIndicator color="#0B0D17" /> : <AppText variant="headline" tone="onHolo">{label}</AppText>}
+      </HoloFill>
     </Pressable>
   );
 }
@@ -230,7 +241,7 @@ function TextButton({ label, onPress, tone = 'tint' }: { label: string; onPress:
 }
 
 const styles = StyleSheet.create({
-  backdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.45)' },
+  backdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(11,13,23,0.5)' },
   sheet: {
     position: 'absolute',
     left: 0,
@@ -261,15 +272,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipSelected: { color: '#FFFFFF', fontWeight: '600' },
+  chipSelected: { fontWeight: '600' },
+  primaryWrap: { marginTop: space.sm },
   primary: {
     minHeight: 50,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: space.sm,
   },
-  primaryLabel: { color: '#FFFFFF' },
+  badges: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginVertical: 2 },
   textButton: { minHeight: MIN_TOUCH, alignItems: 'center', justifyContent: 'center' },
   list: { flexGrow: 0, maxHeight: 360 },
   listContent: { gap: space.sm, paddingVertical: space.xs },

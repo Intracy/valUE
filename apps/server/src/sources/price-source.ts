@@ -21,6 +21,17 @@ export interface SourcePrinting {
   lowPriceUsd: number | null;
 }
 
+export type SourceGrader = 'PSA' | 'CGC' | 'BGS' | 'SGC';
+
+/** Preis und/oder Population einer Note. */
+export interface SourceGrade {
+  grader: SourceGrader;
+  /** "10", "9.5", "9" */
+  grade: string;
+  priceUsd: number | null;
+  population: number | null;
+}
+
 export interface SourceCard {
   id: string;
   setId: string;
@@ -33,6 +44,12 @@ export interface SourceCard {
   /** ISO-Zeitstempel des Preisstands, falls die Quelle ihn nennt. */
   priceUpdatedAt: string | null;
   printings: SourcePrinting[];
+  /** Normierter Element-Schlüssel (siehe domain/elements.ts). Fehlt er, bleibt der gespeicherte Wert. */
+  element?: string | null;
+  /** Preise gegradeter Exemplare, falls die Quelle sie mitliefert. */
+  grades?: SourceGrade[];
+  /** Tagespreise der Vergangenheit (Near Mint), falls angefragt. */
+  history?: { day: string; marketPriceUsd: number }[];
 }
 
 export interface CreditUsage {
@@ -46,6 +63,8 @@ export interface PriceSource {
   readonly name: string;
   listSets(language: string): Promise<{ sets: SourceSet[]; credits: CreditUsage }>;
   listCardsInSet(set: SourceSet): Promise<{ cards: SourceCard[]; skipped: number; credits: CreditUsage }>;
+  /** Populationsbericht für bis zu 50 Karten. Optional: nicht jeder Anbieter oder Tarif hat ihn. */
+  fetchPopulation?(cardIds: string[], language: string): Promise<{ grades: Map<string, SourceGrade[]>; credits: CreditUsage }>;
 }
 
 export class SourceError extends Error {

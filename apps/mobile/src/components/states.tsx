@@ -1,11 +1,12 @@
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { ApiRequestError } from '@/api/client';
-import { MIN_TOUCH, radius, space } from '@/theme/theme';
+import { space } from '@/theme/theme';
 import { usePalette } from '@/theme/use-palette';
 
 import { AppText } from './app-text';
+import { HoloButton } from './ui';
 
 /** Ladezustand. Erscheint nur, solange noch gar keine Daten da sind. */
 export function LoadingView({ label = 'Wird geladen' }: { label?: string }) {
@@ -38,16 +39,7 @@ export function MessageView({ symbol, title, description, actionLabel, onAction 
           {description}
         </AppText>
       ) : null}
-      {actionLabel && onAction ? (
-        <Pressable
-          onPress={onAction}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.button, { backgroundColor: colors.tint, opacity: pressed ? 0.7 : 1 }]}>
-          <AppText variant="headline" style={styles.buttonLabel}>
-            {actionLabel}
-          </AppText>
-        </Pressable>
-      ) : null}
+      {actionLabel && onAction ? <HoloButton label={actionLabel} onPress={onAction} style={styles.button} /> : null}
     </View>
   );
 }
@@ -80,14 +72,5 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   centerText: { textAlign: 'center' },
-  button: {
-    minHeight: MIN_TOUCH,
-    minWidth: 160,
-    marginTop: space.md,
-    paddingHorizontal: space.lg,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonLabel: { color: '#FFFFFF' },
+  button: { minWidth: 200, marginTop: space.md },
 });

@@ -4,18 +4,32 @@ import * as ImagePicker from 'expo-image-picker';
 import { useIsFocused, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, View, type LayoutRectangle } from 'react-native';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+  type LayoutRectangle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, Path } from 'react-native-svg';
 
 import { ApiRequestError } from '@/api/client';
 import { useConfirmScan, useScanCard } from '@/api/queries';
 import { AppText } from '@/components/app-text';
 import { successFeedback, tapFeedback } from '@/components/haptics';
+import { HoloFill, HoloStops, useSvgId } from '@/components/holo';
 import { MessageView } from '@/components/states';
 import { centerCardCrop, guideRect, previewToPhoto } from '@/scan/geometry';
 import { preparePhoto } from '@/scan/prepare-photo';
 import { ResultSheet } from '@/scan/result-sheet';
 import { radius, space } from '@/theme/theme';
+import { useHolo } from '@/theme/use-palette';
 
 /** Höhe der Tab-Leiste, die auf dem Gerät über dem Kamerabild liegt. Im Browser steht sie darunter. */
 const TAB_BAR = Platform.select({ ios: 49, android: 80, default: 0 });
@@ -124,7 +138,7 @@ export default function ScanScreen() {
 
   const goSearch = () => {
     reset();
-    router.push('/suche');
+    router.navigate('/markt');
   };
 
   // Ein Container, der von Anfang an da ist und seine Größe meldet. Hängt der
@@ -192,8 +206,12 @@ export default function ScanScreen() {
           accessibilityRole="button"
           accessibilityLabel="Foto aufnehmen und Karte erkennen"
           accessibilityState={{ disabled: !live || !ready, busy: phase.kind === 'processing' }}
-          style={({ pressed }) => [styles.shutter, (pressed || !ready) && { opacity: 0.6 }]}>
-          {phase.kind === 'processing' ? <ActivityIndicator color="#FFFFFF" /> : <View style={styles.shutterInner} />}
+          style={({ pressed }) => [(pressed || !ready) && { opacity: 0.6 }]}>
+          <HoloFill style={styles.shutter}>
+            <View style={styles.shutterInner}>
+              {phase.kind === 'processing' ? <ActivityIndicator color="#0B0D17" /> : null}
+            </View>
+          </HoloFill>
         </Pressable>
         <RoundButton
           label="Karte selbst suchen"
@@ -208,7 +226,7 @@ export default function ScanScreen() {
           <SymbolView
             name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
             size={20}
-            tintColor="#30D158"
+            tintColor="#2BD98F"
           />
           <AppText variant="subheadline" style={styles.light}>
             {toast}
@@ -246,29 +264,78 @@ export default function ScanScreen() {
   );
 }
 
-/** Abgedunkelter Rand um den Suchrahmen, der Rahmen selbst mit Eckmarken. */
+/**
+ * Abgedunkelter Rand um den Suchrahmen. Der Rahmen selbst hat Eckmarken im
+ * Holo-Verlauf wie im Moodboard; eine Scan-Linie läuft durch, solange die
+ * Erkennung arbeitet (bei "Bewegung reduzieren" steht sie still).
+ */
 function GuideOverlay({ guide, highlight }: { guide: { x: number; y: number; width: number; height: number }; highlight: boolean }) {
-  const shade = 'rgba(0,0,0,0.55)';
-  const color = highlight ? '#5E5CE6' : '#FFFFFF';
+  const shade = 'rgba(11,13,23,0.62)';
+  const holo = useHolo();
+  const id = useSvgId('corner');
+  const sweep = useRef(new Animated.Value(0)).current;
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    if (!highlight || reduceMotion) {
+      sweep.setValue(0.5);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sweep, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(sweep, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [highlight, reduceMotion, sweep]);
+
+  const arm = Math.min(guide.width, guide.height) * 0.16;
+  const r = radius.lg;
+  const w = guide.width;
+  const h = guide.height;
+  // Vier Ecken als L mit gerundeter Spitze.
+  const corners = [
+    `M0,${arm + r} V${r} Q0,0 ${r},0 H${arm + r}`,
+    `M${w - arm - r},0 H${w - r} Q${w},0 ${w},${r} V${arm + r}`,
+    `M${w},${h - arm - r} V${h - r} Q${w},${h} ${w - r},${h} H${w - arm - r}`,
+    `M${arm + r},${h} H${r} Q0,${h} 0,${h - r} V${h - arm - r}`,
+  ];
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: guide.y, backgroundColor: shade }} />
       <View style={{ position: 'absolute', left: 0, right: 0, top: guide.y + guide.height, bottom: 0, backgroundColor: shade }} />
       <View style={{ position: 'absolute', left: 0, width: guide.x, top: guide.y, height: guide.height, backgroundColor: shade }} />
       <View style={{ position: 'absolute', right: 0, left: guide.x + guide.width, top: guide.y, height: guide.height, backgroundColor: shade }} />
-      <View
-        style={{
-          position: 'absolute',
-          left: guide.x,
-          top: guide.y,
-          width: guide.width,
-          height: guide.height,
-          borderRadius: radius.md,
-          borderWidth: 2,
-          borderColor: color,
-          opacity: 0.9,
-        }}
-      />
+      <Svg
+        style={{ position: 'absolute', left: guide.x - 3, top: guide.y - 3 }}
+        width={w + 6}
+        height={h + 6}
+        viewBox={`-3 -3 ${w + 6} ${h + 6}`}>
+        <Defs>
+          <HoloStops id={id} colors={holo} vertical />
+        </Defs>
+        {corners.map((d) => (
+          <Path key={d} d={d} stroke={`url(#${id})`} strokeWidth={5} strokeLinecap="round" fill="none" />
+        ))}
+      </Svg>
+      {highlight ? (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            left: guide.x + 8,
+            width: guide.width - 16,
+            top: guide.y,
+            height: 3,
+            transform: [{ translateY: sweep.interpolate({ inputRange: [0, 1], outputRange: [8, guide.height - 11] }) }],
+          }}>
+          <HoloFill style={styles.scanLine} />
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -312,20 +379,30 @@ const styles = StyleSheet.create({
     gap: 44,
   },
   shutter: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  shutterInner: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFFFFF' },
+  shutterInner: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#F4F5FA',
+    borderWidth: 3,
+    borderColor: '#0B0D17',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scanLine: { flex: 1, borderRadius: 2, boxShadow: '0 0 12px rgba(79, 227, 255, 0.9)' },
   round: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(20,24,41,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(244,245,250,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -340,8 +417,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
     borderRadius: 22,
-    backgroundColor: 'rgba(28,28,30,0.92)',
+    backgroundColor: 'rgba(20,24,41,0.94)',
+    borderWidth: 1,
+    borderColor: '#1A1F35',
   },
-  errorToast: { backgroundColor: 'rgba(160,30,30,0.92)' },
+  errorToast: { backgroundColor: 'rgba(200,36,59,0.94)', borderColor: 'transparent' },
   libraryLink: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', marginBottom: space.xl },
 });

@@ -7,12 +7,13 @@ import { MAX_CONTENT_WIDTH, MIN_TOUCH, radius, space } from '@/theme/theme';
 import { usePalette } from '@/theme/use-palette';
 
 import { AppText } from './app-text';
+import { HoloFill, Wordmark } from './holo';
 
 /** Ab dieser Breite steht die Navigation oben, darunter als Leiste am unteren Rand. */
 const WIDE = 700;
 const Narrow = createContext(false);
 
-type WebSymbol = 'collections' | 'style' | 'search' | 'person' | 'photo_camera';
+type WebSymbol = 'show_chart' | 'collections' | 'storefront' | 'person' | 'photo_camera';
 
 /**
  * Navigation im Browser. Auf Handybreite eine Leiste unten mit Symbol und
@@ -39,17 +40,17 @@ export default function AppTabs() {
         {/* TabList muss direkt in Tabs stehen, sonst findet der Router die Tabs nicht. */}
         <TabList asChild>
           <Bar>
-            <TabTrigger name="sammlung" href="/" asChild>
+            <TabTrigger name="portfolio" href="/" asChild>
+              <TabButton symbol="show_chart">Portfolio</TabButton>
+            </TabTrigger>
+            <TabTrigger name="sammlung" href="/sammlung" asChild>
               <TabButton symbol="collections">Sammlung</TabButton>
             </TabTrigger>
-            <TabTrigger name="sets" href="/sets" asChild>
-              <TabButton symbol="style">Sets</TabButton>
-            </TabTrigger>
             <TabTrigger name="scan" href="/scan" asChild>
-              <ScanButton>Scannen</ScanButton>
+              <ScanButton>Scan</ScanButton>
             </TabTrigger>
-            <TabTrigger name="suche" href="/suche" asChild>
-              <TabButton symbol="search">Suche</TabButton>
+            <TabTrigger name="markt" href="/markt" asChild>
+              <TabButton symbol="storefront">Markt</TabButton>
             </TabTrigger>
             <TabTrigger name="profil" href="/profil" asChild>
               <TabButton symbol="person">Profil</TabButton>
@@ -75,9 +76,9 @@ function Bar({ children, style, ...props }: TabListProps) {
       ]}>
       <View style={[styles.inner, narrow && styles.innerNarrow]}>
         {narrow ? null : (
-          <AppText variant="headline" style={styles.brand}>
-            valUE
-          </AppText>
+          <View style={styles.brand}>
+            <Wordmark size={24} />
+          </View>
         )}
         {children}
       </View>
@@ -117,11 +118,13 @@ function ScanButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
         {...(props as PressableProps)}
         accessibilityRole="tab"
         accessibilityState={{ selected: Boolean(isFocused) }}
-        style={({ pressed }) => [styles.scanWide, { backgroundColor: colors.tint }, pressed && { opacity: 0.8 }]}>
-        <SymbolView name={{ web: 'photo_camera' }} size={18} tintColor="#FFFFFF" />
-        <AppText variant="subheadline" style={styles.scanWideLabel}>
-          {children}
-        </AppText>
+        style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
+        <HoloFill style={styles.scanWide}>
+          <SymbolView name={{ web: 'photo_camera' }} size={18} tintColor={colors.onHolo} />
+          <AppText variant="subheadline" tone="onHolo" style={styles.scanWideLabel}>
+            {children}
+          </AppText>
+        </HoloFill>
       </Pressable>
     );
   }
@@ -132,10 +135,12 @@ function ScanButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
       accessibilityLabel="Scannen"
       accessibilityState={{ selected: Boolean(isFocused) }}
       style={({ pressed }) => [styles.buttonNarrow, pressed && { opacity: 0.8 }]}>
-      <View style={[styles.scanCircle, { backgroundColor: colors.tint, borderColor: colors.background }]}>
-        <SymbolView name={{ web: 'photo_camera' }} size={28} tintColor="#FFFFFF" />
+      <View style={[styles.scanRing, { backgroundColor: colors.background }]}>
+        <HoloFill style={styles.scanCircle}>
+          <SymbolView name={{ web: 'photo_camera' }} size={28} tintColor={colors.onHolo} />
+        </HoloFill>
       </View>
-      <AppText variant="caption" style={{ color: colors.tint, fontWeight: '600' }}>
+      <AppText variant="caption" style={{ color: isFocused ? colors.tint : colors.secondaryLabel, fontWeight: '600' }}>
         {children}
       </AppText>
     </Pressable>
@@ -143,18 +148,19 @@ function ScanButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
 }
 
 const styles = StyleSheet.create({
+  scanRing: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    padding: 4,
+    marginTop: -28,
+    boxShadow: '0 4px 18px rgba(139, 92, 255, 0.45)',
+  },
   scanCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    borderWidth: 4,
-    marginTop: -26,
+    flex: 1,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
   },
   scanWide: {
     minHeight: MIN_TOUCH,
@@ -164,7 +170,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.xs,
   },
-  scanWideLabel: { color: '#FFFFFF', fontWeight: '600' },
+  scanWideLabel: { fontWeight: '700' },
   root: { flex: 1 },
   slot: { flex: 1 },
   bar: { alignItems: 'center' },

@@ -1,0 +1,25 @@
+{
+  "_note": "Echte Antwort von GET /api/v2/sets?sortBy=releaseDate&sortOrder=asc&limit=5, auf zwei Sets und die genutzten Felder gekürzt (17.11.2026).",
+  "data": [
+    {
+      "id": "696e3c9cbb2a772e0d056815",
+      "tcgPlayerId": "base-set",
+      "tcgPlayerNumericId": 604,
+      "name": "Base Set",
+      "series": "Base Set",
+      "releaseDate": "1999-01-09T00:00:00.000Z",
+      "cardCount": 102,
+      "imageCdnUrl": "https://tcgplayer-cdn.tcgplayer.com/set_icon/604BaseSet.png"
+    },
+    {
+      "id": "696e3ca7bb2a772e0d0568c8",
+      "tcgPlayerId": "sv01-scarlet-and-violet-base-set",
+      "tcgPlayerNumericId": 22873,
+      "name": "SV01: Scarlet & Violet Base Set",
+      "series": "Scarlet & Violet",
+      "releaseDate": "2023-03-31T00:00:00.000Z",
+      "cardCount": 267,
+      "imageCdnUrl": "https://tcgplayer-cdn.tcgplayer.com/set_icon/22873SV01ScarletVioletBaseSet.png"
+    }
+  ]
+}

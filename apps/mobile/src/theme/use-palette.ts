@@ -1,15 +1,17 @@
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAppearance } from './appearance';
+import { holoStops, palette, type Scheme } from './theme';
 
-import { palette, staticPalette } from './theme';
-
-export function useScheme(): 'light' | 'dark' {
-  return useColorScheme() === 'dark' ? 'dark' : 'light';
+export function useScheme(): Scheme {
+  return useAppearance().scheme;
 }
 
 export function usePalette() {
   return palette(useScheme());
 }
 
-export function useStaticPalette() {
-  return staticPalette(useScheme());
+/** Feste Werte (keine Systemfarben), etwa für das Navigations-Thema. */
+export const useStaticPalette = usePalette;
+
+export function useHolo(): string[] {
+  return holoStops(useScheme());
 }

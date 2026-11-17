@@ -1,5 +1,9 @@
 import type {
   CardDetailResponse,
+  CardGrade,
+  Grader,
+  MarketMoversResponse,
+  MoverCard,
   CardSummary,
   Money,
   SearchResponse,
@@ -11,6 +15,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import type { Db } from '../../db/pool.js';
 import type { CatalogVersion } from '../catalog-version.js';
+import { isElement } from '../../domain/elements.js';
 import { notFound } from '../errors.js';
 
 /**
@@ -39,6 +44,7 @@ interface CardRow {
   image_url: string | null;
   market_price_usd: number | null;
   market_price_eur: number | null;
+  element: string | null;
 }
 
 const toSet = (row: SetRow): SetSummary => ({
@@ -63,10 +69,14 @@ export const toCard = (row: CardRow): CardSummary => ({
   rarity: row.rarity,
   imageUrl: row.image_url,
   price: toPrice(row.market_price_usd, row.market_price_eur),
+  element: isElement(row.element) ? row.element : null,
 });
 
-const CARD_COLUMNS =
-  'c.id, c.set_id, c.name, c.number, c.rarity, c.image_url, c.market_price_usd, c.market_price_eur';
+export const CARD_COLUMNS =
+  'c.id, c.set_id, c.name, c.number, c.rarity, c.image_url, c.market_price_usd, c.market_price_eur, c.element';
+
+/** Höchste Note zuerst; "9.5" steht zwischen "10" und "9". */
+const byGradeDesc = (a: CardGrade, b: CardGrade) => Number(b.grade) - Number(a.grade);
 
 export function registerCatalogRoutes(app: FastifyInstance, db: Db, version: CatalogVersion) {
   /** Setzt Cache-Kopfzeilen. Antwortet mit 304, wenn der Client den Stand schon hat. */
@@ -125,7 +135,7 @@ export function registerCatalogRoutes(app: FastifyInstance, db: Db, version: Cat
       const catalogVersion = await cached(request, reply, `card-${cardId}-${days}`);
       if (catalogVersion === null) return;
 
-      const [card, printings, history] = await Promise.all([
+      const [card, printings, history, grades] = await Promise.all([
         db.query<CardRow & { low_price_usd: number | null; price_updated_at: Date | null; set_name: string; set_release_date: string | null }>(
           `select ${CARD_COLUMNS}, c.low_price_usd, c.price_updated_at,
                   s.name as set_name, s.release_date as set_release_date
@@ -144,6 +154,10 @@ export function registerCatalogRoutes(app: FastifyInstance, db: Db, version: Cat
            where card_id = $1 and day >= current_date - $2::int
            order by day`,
           [cardId, days],
+        ),
+        db.query<{ grader: Grader; grade: string; price_usd: number | null; population: number | null }>(
+          `select grader, grade, price_usd, population from card_grades where card_id = $1`,
+          [cardId],
         ),
       ]);
 
@@ -171,10 +185,82 @@ export function registerCatalogRoutes(app: FastifyInstance, db: Db, version: Cat
             }))
             .filter((point): point is { day: string; amount: number } => point.amount !== null),
         },
+        grades: grades.rows
+          .map((grade) => ({
+            grader: grade.grader,
+            grade: grade.grade,
+            price: toPrice(grade.price_usd, null),
+            population: grade.population,
+          }))
+          .sort(byGradeDesc),
         catalogVersion,
       };
     },
   );
+
+  // Größte Gewinner und Verlierer über einen Zeitraum. Für alle gleich, deshalb
+  // zwischengespeichert wie der übrige Katalog. Karten unter 1 (Euro oder Dollar)
+  // bleiben außen vor: Dort sind Prozente nur Rauschen.
+  app.get<{ Querystring: { days?: string; limit?: string } }>(
+    '/v1/market/movers',
+    async (request, reply): Promise<MarketMoversResponse | undefined> => {
+      const days = Math.min(Math.max(Number(request.query.days) || 7, 1), 90);
+      const limit = Math.min(Math.max(Number(request.query.limit) || 10, 1), 30);
+      const catalogVersion = await cached(request, reply, `movers-${days}-${limit}`);
+      if (catalogVersion === null) return;
+      // Die Auswertung liest alle Karten an zwei Tagen. Sie ändert sich nur mit dem
+      // Katalog; deshalb einmal je Katalogstand rechnen und im Prozess merken.
+      const key = `${catalogVersion}-${days}-${limit}`;
+      let pending = moversCache.get(key);
+      if (!pending) {
+        if (moversCache.size > 50) moversCache.clear();
+        pending = computeMovers(days, limit, catalogVersion);
+        moversCache.set(key, pending);
+        pending.catch(() => moversCache.delete(key));
+      }
+      return pending;
+    },
+  );
+
+  const moversCache = new Map<string, Promise<MarketMoversResponse>>();
+  async function computeMovers(days: number, limit: number, catalogVersion: string): Promise<MarketMoversResponse> {
+    const result = await db.query<CardRow & { set_name: string; previous: number; currency: 'EUR' | 'USD'; change: number }>(
+      `with base as (
+         select max(day) as day from price_history where day <= current_date - $1::int
+       ),
+       moves as (
+         select ${CARD_COLUMNS}, s.name as set_name,
+                case when c.market_price_eur is not null and ph.market_price_eur is not null then 'EUR' else 'USD' end as currency,
+                case when c.market_price_eur is not null and ph.market_price_eur is not null
+                     then ph.market_price_eur else ph.market_price_usd end as previous,
+                case when c.market_price_eur is not null and ph.market_price_eur is not null
+                     then c.market_price_eur else c.market_price_usd end as cur
+         from base
+         join price_history ph on ph.day = base.day
+         join cards c on c.id = ph.card_id
+         join sets s on s.id = c.set_id
+       )
+       (select *, (cur - previous) / previous as change from moves
+        where previous >= 1 and cur > previous order by change desc, id limit $2)
+       union all
+       (select *, (cur - previous) / previous as change from moves
+        where previous >= 1 and cur < previous order by change asc, id limit $2)`,
+      [days, limit],
+    );
+
+    const toMover = (row: (typeof result.rows)[number]): MoverCard => ({
+      ...toCard(row),
+      setName: row.set_name,
+      previousPrice: { amount: row.previous, currency: row.currency },
+      changePercent: Math.round(row.change * 1000) / 10,
+    });
+    return {
+      days,
+      gainers: result.rows.filter((row) => row.change > 0).map(toMover),
+      losers: result.rows.filter((row) => row.change < 0).map(toMover),
+      catalogVersion,
+    };
+  }
 
   app.get<{ Querystring: { q?: string; limit?: string } }>(
     '/v1/search',

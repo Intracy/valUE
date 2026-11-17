@@ -8,11 +8,14 @@ import type {
   ProfileResponse,
   PutCollectionItemRequest,
   PutCollectionItemResponse,
+  UpdateProfileRequest,
 } from '@value/api-types';
 import type { FastifyInstance } from 'fastify';
 
 import type { Db } from '../../db/pool.js';
-import { cardXp, scoreTrack, VINTAGE_BEFORE } from '../../domain/xp.js';
+import { evaluateAchievements, rankForLevel } from '../../domain/achievements.js';
+import { isElement } from '../../domain/elements.js';
+import { cardXp, RARITY_TIERS, rarityTier, scoreTrack, VINTAGE_BEFORE, type RarityTier } from '../../domain/xp.js';
 import { createAnonymousUser, type Authenticator } from '../auth.js';
 import { badRequest, notFound } from '../errors.js';
 import { toPrice } from './catalog.js';
@@ -154,8 +157,10 @@ export function registerCollectionRoutes(app: FastifyInstance, db: Db, authentic
       vintage: boolean;
       market_price_usd: number | null;
       market_price_eur: number | null;
+      element: string | null;
+      source: CollectionSource;
     }>(
-      `select ci.card_id, ci.printing, ci.quantity, c.rarity, c.set_id, s.card_count,
+      `select ci.card_id, ci.printing, ci.quantity, ci.source, c.rarity, c.set_id, c.element, s.card_count,
               coalesce(s.release_date < $2::date, false) as vintage,
               c.market_price_usd, c.market_price_eur
        from collection_items ci
@@ -164,17 +169,30 @@ export function registerCollectionRoutes(app: FastifyInstance, db: Db, authentic
        where ci.user_id = $1`,
       [userId, VINTAGE_BEFORE],
     );
+    const user = await db.query<{ display_name: string | null }>(`select display_name from users where id = $1`, [
+      userId,
+    ]);
 
     // Varianten zählen nach Namen. Ein Eintrag ohne Variante ('') zählt nicht als eigene Variante.
-    const cards = new Map<string, { rarity: string | null; vintage: boolean; printings: Set<string> }>();
+    const cards = new Map<
+      string,
+      { rarity: string | null; vintage: boolean; printings: Set<string>; element: string | null; scanned: boolean }
+    >();
     const sets = new Map<string, { cardCount: number; cards: Set<string> }>();
     let totalCards = 0;
     let valueUsd = 0;
     let valueEur = 0;
     let pricedEur = 0;
     for (const row of owned.rows) {
-      const card = cards.get(row.card_id) ?? { rarity: row.rarity, vintage: row.vintage, printings: new Set<string>() };
+      const card = cards.get(row.card_id) ?? {
+        rarity: row.rarity,
+        vintage: row.vintage,
+        printings: new Set<string>(),
+        element: row.element,
+        scanned: false,
+      };
       if (row.printing) card.printings.add(row.printing);
+      if (row.source === 'scan') card.scanned = true;
       cards.set(row.card_id, card);
 
       const set = sets.get(row.set_id) ?? { cardCount: row.card_count, cards: new Set<string>() };
@@ -191,18 +209,35 @@ export function registerCollectionRoutes(app: FastifyInstance, db: Db, authentic
 
     let xp = 0;
     let vintageXp = 0;
+    let maxVariants = 0;
+    let vintageCards = 0;
+    let scannedCards = 0;
+    const byTier = new Map<RarityTier, number>();
+    const byElement: Record<string, number> = {};
     for (const card of cards.values()) {
-      const points = cardXp(card.rarity, Math.max(1, card.printings.size));
+      const variants = Math.max(1, card.printings.size);
+      const points = cardXp(card.rarity, variants);
       xp += points;
-      if (card.vintage) vintageXp += points;
+      if (card.vintage) {
+        vintageXp += points;
+        vintageCards += 1;
+      }
+      if (card.scanned) scannedCards += 1;
+      maxVariants = Math.max(maxVariants, variants);
+      const tier = rarityTier(card.rarity);
+      byTier.set(tier, (byTier.get(tier) ?? 0) + 1);
+      if (isElement(card.element)) byElement[card.element] = (byElement[card.element] ?? 0) + 1;
     }
     let completedSets = 0;
     for (const set of sets.values()) {
       if (set.cardCount > 0 && set.cards.size >= set.cardCount) completedSets += 1;
     }
+    const score = scoreTrack(xp);
 
     return {
       userId,
+      displayName: user.rows[0]?.display_name ?? null,
+      rank: rankForLevel(score.level),
       uniqueCards: cards.size,
       totalCards,
       // Euro nur, wenn es Euro-Preise gibt. Sonst der Dollar-Wert.
@@ -212,10 +247,33 @@ export function registerCollectionRoutes(app: FastifyInstance, db: Db, authentic
           : pricedEur > 0
             ? toPrice(null, round2(valueEur))
             : toPrice(round2(valueUsd), null),
-      score: scoreTrack(xp),
+      score,
       vintageScore: scoreTrack(vintageXp),
       completedSets,
+      achievements: evaluateAchievements({
+        uniqueCards: cards.size,
+        completedSets,
+        maxVariants: cards.size === 0 ? 0 : maxVariants,
+        secretCards: byTier.get('secret') ?? 0,
+        vintageCards,
+        scannedCards,
+        byElement,
+      }),
+      rarityDistribution: RARITY_TIERS.map((tier) => ({ tier, cards: byTier.get(tier) ?? 0 })),
     };
+  });
+
+  app.patch<{ Body: UpdateProfileRequest }>('/v1/me/profile', async (request) => {
+    const userId = await authenticate(request);
+    const raw = request.body?.displayName;
+    if (raw !== null && raw !== undefined && typeof raw !== 'string') {
+      throw badRequest('displayName muss Text oder null sein.');
+    }
+    // Steuerzeichen raus, Leerraum zusammenziehen.
+    const name = (raw ?? '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim();
+    if (name.length > 40) throw badRequest('Der Name darf höchstens 40 Zeichen haben.');
+    await db.query(`update users set display_name = $2 where id = $1`, [userId, name || null]);
+    return { displayName: name || null };
   });
 }
 

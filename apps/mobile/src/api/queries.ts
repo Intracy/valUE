@@ -10,6 +10,14 @@ import type {
   ConfirmScanRequest,
   ConfirmScanResponse,
   DeleteCollectionItemResponse,
+  ExchangeRateResponse,
+  FavoriteCard,
+  FavoriteResponse,
+  FavoritesResponse,
+  MarketMoversResponse,
+  PortfolioRange,
+  PortfolioResponse,
+  UpdateProfileRequest,
   ScanRequest,
   ScanResponse,
   CollectionProgressResponse,
@@ -57,7 +65,19 @@ export const keys = {
   progress: ['me', 'progress'] as const,
   ownedInSet: (setId: string) => ['me', 'set', setId] as const,
   profile: ['me', 'profile'] as const,
+  portfolioAll: ['me', 'portfolio'] as const,
+  portfolio: (range: PortfolioRange) => ['me', 'portfolio', range] as const,
+  favorites: ['me', 'favorites'] as const,
+  movers: (days: number) => ['market', 'movers', days] as const,
 };
+
+/** Nach jeder Änderung an der Sammlung: alles, was daraus gerechnet wird, neu laden. */
+function invalidateCollection(client: ReturnType<typeof useQueryClient>, setId: string) {
+  void client.invalidateQueries({ queryKey: keys.ownedInSet(setId) });
+  void client.invalidateQueries({ queryKey: keys.progress });
+  void client.invalidateQueries({ queryKey: keys.profile });
+  void client.invalidateQueries({ queryKey: keys.portfolioAll });
+}
 
 export const useSets = () =>
   useQuery({
@@ -111,6 +131,72 @@ export const useProfile = () =>
     staleTime: MINUTE,
   });
 
+export const usePortfolio = (range: PortfolioRange) =>
+  useQuery({
+    queryKey: keys.portfolio(range),
+    queryFn: ({ signal }) => authedRequest<PortfolioResponse>(`/v1/me/portfolio?range=${range}`, { signal }),
+    staleTime: MINUTE,
+    // Beim Wechsel des Zeitraums bleibt das alte Diagramm stehen, bis das neue da ist.
+    placeholderData: (previous) => previous,
+  });
+
+export const useMovers = (days = 7) =>
+  useQuery({
+    queryKey: keys.movers(days),
+    queryFn: ({ signal }) => request<MarketMoversResponse>(`/v1/market/movers?days=${days}&limit=10`, { signal }),
+  });
+
+/** Wechselkurs Dollar → Euro (EZB). Ändert sich höchstens einmal am Tag. */
+export const useExchangeRate = () =>
+  useQuery({
+    queryKey: ['fx', 'usd-eur'],
+    queryFn: ({ signal }) => request<ExchangeRateResponse>('/v1/fx/usd-eur', { signal }),
+    staleTime: 60 * MINUTE,
+    retry: 1,
+  });
+
+export const useFavorites = () =>
+  useQuery({
+    queryKey: keys.favorites,
+    queryFn: ({ signal }) => authedRequest<FavoritesResponse>('/v1/me/favorites', { signal }),
+    staleTime: MINUTE,
+  });
+
+/** Karte merken oder vergessen. Das Herz schaltet sofort um, bei Fehler zurück. */
+export function useToggleFavorite() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cardId, favorite }: { cardId: string; favorite: boolean; card?: FavoriteCard }) =>
+      authedRequest<FavoriteResponse>(`/v1/me/favorites/${encodeURIComponent(cardId)}`, {
+        method: favorite ? 'PUT' : 'DELETE',
+      }),
+    onMutate: async ({ cardId, favorite, card }) => {
+      await client.cancelQueries({ queryKey: keys.favorites });
+      const previous = client.getQueryData<FavoritesResponse>(keys.favorites);
+      const others = (previous?.cards ?? []).filter((entry) => entry.id !== cardId);
+      client.setQueryData<FavoritesResponse>(keys.favorites, {
+        cards: favorite && card ? [card, ...others] : others,
+      });
+      return { previous };
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous) client.setQueryData(keys.favorites, context.previous);
+    },
+    onSettled: () => void client.invalidateQueries({ queryKey: keys.favorites }),
+  });
+}
+
+export function useUpdateProfile() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateProfileRequest) =>
+      authedRequest<{ displayName: string | null }>('/v1/me/profile', { method: 'PATCH', body }),
+    onSuccess: ({ displayName }) => {
+      client.setQueryData<ProfileResponse>(keys.profile, (current) => (current ? { ...current, displayName } : current));
+    },
+  });
+}
+
 interface SetQuantityInput {
   cardId: string;
   setId: string;
@@ -146,11 +232,7 @@ export function useSetQuantity() {
     onError: (_error, _input, context) => {
       if (context) client.setQueryData(context.key, context.previous);
     },
-    onSettled: (_data, _error, { setId }) => {
-      void client.invalidateQueries({ queryKey: keys.ownedInSet(setId) });
-      void client.invalidateQueries({ queryKey: keys.progress });
-      void client.invalidateQueries({ queryKey: keys.profile });
-    },
+    onSettled: (_data, _error, { setId }) => invalidateCollection(client, setId),
   });
 }
 
@@ -175,11 +257,7 @@ export function useRemoveCard() {
     onError: (_error, _input, context) => {
       if (context) client.setQueryData(context.key, context.previous);
     },
-    onSettled: (_data, _error, { setId }) => {
-      void client.invalidateQueries({ queryKey: keys.ownedInSet(setId) });
-      void client.invalidateQueries({ queryKey: keys.progress });
-      void client.invalidateQueries({ queryKey: keys.profile });
-    },
+    onSettled: (_data, _error, { setId }) => invalidateCollection(client, setId),
   });
 }
 
@@ -200,10 +278,6 @@ export function useConfirmScan() {
         method: 'POST',
         body: { cardId: body.cardId, printing: body.printing } satisfies ConfirmScanRequest,
       }),
-    onSuccess: (_data, { setId }) => {
-      void client.invalidateQueries({ queryKey: keys.ownedInSet(setId) });
-      void client.invalidateQueries({ queryKey: keys.progress });
-      void client.invalidateQueries({ queryKey: keys.profile });
-    },
+    onSuccess: (_data, { setId }) => invalidateCollection(client, setId),
   });
 }

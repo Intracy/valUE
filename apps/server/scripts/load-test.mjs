@@ -18,5 +18,8 @@ await run('Katalog: Kartendetail mit 30 Tagen Verlauf', { requests: [{ path: '/v
 await run('Katalog: Suche', { requests: [{ path: '/v1/search?q=lastkarte%2017-4' }] });
 await run('Nutzer: Fortschritt aller Sets', authed('/v1/me/collection/sets'));
 await run('Nutzer: Karten in einem Set', authed('/v1/me/collection/sets/load-17'));
-await run('Nutzer: Profil mit Score', authed('/v1/me/profile'));
+await run('Nutzer: Profil mit Score und Achievements', authed('/v1/me/profile'));
+await run('Nutzer: Portfolio mit 30 Tagen Verlauf', authed('/v1/me/portfolio?range=1M'));
+await run('Nutzer: Beobachtete Karten', authed('/v1/me/favorites'));
+await run('Markt: Gewinner und Verlierer, 7 Tage', { requests: [{ path: '/v1/market/movers?days=7' }] });
 await run('Nutzer: Karte eintragen (Schreiben)', { ...authed('/v1/me/collection/items/load-17-42', 'PUT', () => JSON.stringify({ quantity: 1 + Math.floor(Math.random() * 3) })) });

@@ -1,8 +1,11 @@
+import { normalizeElement } from '../domain/elements.js';
 import {
   SourceError,
   type CreditUsage,
   type PriceSource,
   type SourceCard,
+  type SourceGrade,
+  type SourceGrader,
   type SourcePrinting,
   type SourceSet,
 } from './price-source.js';
@@ -10,12 +13,15 @@ import {
 /**
  * Anbindung an Pokemon Price Tracker (API v2).
  *
- * WICHTIG: Die API-Referenz dokumentiert für /sets und /cards nur den Umschlag
- * (`data`, `metadata`) und einzelne Felder (`name`, `prices.market`), nicht das
- * vollständige JSON. Die Zuordnung unten probiert deshalb mehrere naheliegende
- * Feldnamen und überspringt Einträge ohne ID oder Namen. Vor dem ersten echten
- * Abgleich `npm run ppt:probe` ausführen: Das Skript zeigt die tatsächlichen
- * Felder und meldet, was die Zuordnung nicht findet.
+ * Die API-Referenz dokumentiert für /sets und /cards nur den Umschlag (`data`,
+ * `metadata`) und einzelne Felder. Die Zuordnung unten probiert deshalb mehrere
+ * naheliegende Feldnamen und überspringt Einträge ohne ID oder Namen.
+ *
+ * Am 17.11.2026 gegen echte Antworten geprüft (Free-Tarif): /sets und /cards mit
+ * `includeHistory`. Die Antworten liegen gekürzt in test/fixtures/ und sind Teil
+ * der Tests. Noch ungeprüft, weil der Free-Tarif sie nicht liefert: gegradete
+ * Preise (`includeEbay`) und /population. Dafür vor dem ersten Lauf
+ * `npm run ppt:probe` ausführen.
  */
 
 type Json = Record<string, unknown>;
@@ -27,6 +33,10 @@ export interface PptClientOptions {
   fetchImpl?: FetchLike;
   timeoutMs?: number;
   maxRetries?: number;
+  /** Gegradete eBay-Preise mitladen (`includeEbay=true`). */
+  includeGraded?: boolean;
+  /** Preisverlauf der letzten Tage mitladen (`includeHistory=true`), 0 = aus. Kostet einen Credit mehr je Karte. */
+  historyDays?: number;
   /** Nur für Tests: Wartezeit zwischen Wiederholungen. */
   sleep?: (ms: number) => Promise<void>;
 }
@@ -88,7 +98,9 @@ export const slugify = (text: string): string =>
 export function mapSet(raw: unknown, language: string): SourceSet | null {
   const name = asText(pick(raw, ['name', 'setName', 'title']));
   if (!name) return null;
-  const id = asText(pick(raw, ['id', 'setId', 'slug', 'tcgPlayerId', '_id'])) ?? slugify(name);
+  // `id` ist bei Pokemon Price Tracker eine interne Datenbank-ID; `tcgPlayerId` ist das
+  // lesbare Kürzel ("base-set") und bleibt über Abgleiche gleich.
+  const id = asText(pick(raw, ['tcgPlayerId', 'slug', 'setId', 'id', '_id'])) ?? slugify(name);
   const count = asNumber(pick(raw, ['cardCount', 'totalCards', 'total', 'printedTotal', 'cards']));
   return {
     id,
@@ -128,6 +140,86 @@ function mapPrintings(raw: unknown): SourcePrinting[] {
   return printings;
 }
 
+const GRADERS: SourceGrader[] = ['PSA', 'CGC', 'BGS', 'SGC'];
+const GRADE_PRICE_KEYS = ['smartMarketPrice', 'marketPrice', 'avg', 'average', 'averagePrice', 'medianPrice', 'median', 'price'];
+
+/** "psa10" -> PSA 10, "bgs9_5" / "cgc9.5" -> 9.5. */
+function parseGradeKey(key: string): { grader: SourceGrader; grade: string } | null {
+  const match = /^(psa|cgc|bgs|sgc)[\s_-]?(\d{1,2})(?:[._](5))?$/i.exec(key.trim());
+  if (!match) return null;
+  const grade = match[3] ? `${match[2]}.5` : match[2]!;
+  const numeric = Number(grade);
+  if (numeric < 1 || numeric > 10) return null;
+  return { grader: match[1]!.toUpperCase() as SourceGrader, grade };
+}
+
+/**
+ * Gegradete Preise aus `includeEbay=true`. Belegt ist nur `ebay.psa10.avg`;
+ * daneben werden naheliegende Hüllen (`ebay.grades`, `ebay.salesByGrade`) und
+ * Preisfelder aus dem Export probiert.
+ */
+export function mapGrades(raw: unknown): SourceGrade[] {
+  const containers = [pick(raw, ['ebay.salesByGrade']), pick(raw, ['ebay.grades']), pick(raw, ['ebay']), pick(raw, ['graded'])];
+  const found = new Map<string, SourceGrade>();
+  for (const container of containers) {
+    if (!isObject(container)) continue;
+    for (const [key, value] of Object.entries(container)) {
+      const parsed = parseGradeKey(key);
+      if (!parsed) continue;
+      const price = isObject(value) ? asNumber(pick(value, GRADE_PRICE_KEYS)) : asNumber(value);
+      if (price === null) continue;
+      const id = `${parsed.grader}-${parsed.grade}`;
+      if (!found.has(id)) found.set(id, { ...parsed, priceUsd: price, population: null });
+    }
+  }
+  return [...found.values()];
+}
+
+/**
+ * Population aus GET /population: `populationByGrader.PSA.g10`, `g9_5` usw.
+ * Halbe Noten gibt es nur bei BGS und CGC.
+ */
+export function mapPopulation(raw: unknown): SourceGrade[] {
+  const byGrader = pick(raw, ['populationByGrader']);
+  if (!isObject(byGrader)) return [];
+  const grades: SourceGrade[] = [];
+  for (const grader of GRADERS) {
+    const counts = byGrader[grader];
+    if (!isObject(counts)) continue;
+    for (const [key, value] of Object.entries(counts)) {
+      const match = /^g(\d{1,2})(?:_(5))?$/.exec(key);
+      const population = asNumber(value);
+      if (!match || population === null) continue;
+      grades.push({ grader, grade: match[2] ? `${match[1]}.5` : match[1]!, priceUsd: null, population: Math.round(population) });
+    }
+  }
+  return grades;
+}
+
+/**
+ * Preisverlauf aus `includeHistory=true`: Near Mint der Hauptvariante, sonst
+ * Near Mint über alle Varianten, sonst der erste Zustand mit Daten.
+ */
+export function mapHistory(raw: unknown): { day: string; marketPriceUsd: number }[] {
+  const primary = asText(pick(raw, ['prices.primaryPrinting']));
+  const byVariant = pick(raw, ['priceHistory.variants']);
+  const byCondition = pick(raw, ['priceHistory.conditions']);
+  const candidates: unknown[] = [];
+  if (primary && isObject(byVariant)) candidates.push(pick(byVariant[primary], ['Near Mint.history']));
+  if (isObject(byCondition)) {
+    candidates.push(pick(byCondition, ['Near Mint.history']));
+    for (const value of Object.values(byCondition)) candidates.push(pick(value, ['history']));
+  }
+  const series = candidates.find((entry): entry is unknown[] => Array.isArray(entry) && entry.length > 0) ?? [];
+  const days = new Map<string, number>();
+  for (const point of series) {
+    const day = asIsoDate(pick(point, ['date', 'day']));
+    const price = asNumber(pick(point, ['market', 'price', 'marketPrice']));
+    if (day && price !== null) days.set(day, price);
+  }
+  return [...days].map(([day, marketPriceUsd]) => ({ day, marketPriceUsd })).sort((a, b) => a.day.localeCompare(b.day));
+}
+
 export function mapCard(raw: unknown, set: SourceSet): SourceCard | null {
   const id = asText(pick(raw, ['tcgPlayerId', 'id', '_id', 'cardId']));
   const name = asText(pick(raw, ['name', 'cardName']));
@@ -147,6 +239,9 @@ export function mapCard(raw: unknown, set: SourceSet): SourceCard | null {
       pick(raw, ['prices.lastUpdated', 'lastPriceUpdate', 'priceUpdatedAt', 'lastUpdated', 'updatedAt']),
     ),
     printings: mapPrintings(raw),
+    element: normalizeElement(pick(raw, ['types', 'type', 'energyType', 'pokemonType', 'element', 'cardType'])),
+    grades: mapGrades(raw),
+    history: mapHistory(raw),
   };
 }
 
@@ -247,9 +342,30 @@ export class PokemonPriceTrackerSource implements PriceSource {
       set: set.name,
       language: set.language,
       fetchAllInSet: true,
+      includeEbay: this.options.includeGraded ? true : undefined,
+      includeHistory: this.options.historyDays ? true : undefined,
+      days: this.options.historyDays || undefined,
     });
     const rows = PokemonPriceTrackerSource.rows(body);
     const cards = rows.map((raw) => mapCard(raw, set)).filter((card): card is SourceCard => card !== null);
     return { cards, skipped: rows.length - cards.length, credits };
+  }
+
+  /** Nur Business- und Enterprise-Tarif; 2 Credits je Karte, höchstens 50 je Abruf. */
+  async fetchPopulation(cardIds: string[], language: string) {
+    const { body, credits } = await this.request('/population', {
+      tcgPlayerIds: cardIds.slice(0, 50).join(','),
+      language,
+      limit: 100,
+    });
+    // Bei einer Karte kommt ein Objekt zurück, bei mehreren eine Liste.
+    const data = pick(body, ['data']);
+    const rows = Array.isArray(data) ? data : isObject(data) ? [data] : isObject(body) ? [body] : [];
+    const grades = new Map<string, SourceGrade[]>();
+    for (const row of rows) {
+      const id = asText(pick(row, ['tcgPlayerId', 'id', 'cardId']));
+      if (id) grades.set(id, mapPopulation(row));
+    }
+    return { grades, credits };
   }
 }

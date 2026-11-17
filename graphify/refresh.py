@@ -59,7 +59,11 @@ def prepare_workdir() -> None:
     work = WORK / "graph.json"
     if work.exists() and work.read_bytes() == tracked.read_bytes():
         return
-    WORK.mkdir(exist_ok=True)
+    # Alter Arbeitsstand weg: Sonst hält Graphify die Dateien laut manifest.json für
+    # unverändert und liest nichts neu ein.
+    if WORK.exists():
+        shutil.rmtree(WORK)
+    WORK.mkdir()
     for name in OUTPUTS:
         shutil.copy2(TRACKED / name, WORK / name)
     LABELS.write_text(
