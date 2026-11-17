@@ -10,6 +10,7 @@ import type {
   ConfirmScanRequest,
   ConfirmScanResponse,
   DeleteCollectionItemResponse,
+  ExchangeRateResponse,
   FavoriteCard,
   FavoriteResponse,
   FavoritesResponse,
@@ -143,6 +144,15 @@ export const useMovers = (days = 7) =>
   useQuery({
     queryKey: keys.movers(days),
     queryFn: ({ signal }) => request<MarketMoversResponse>(`/v1/market/movers?days=${days}&limit=10`, { signal }),
+  });
+
+/** Wechselkurs Dollar → Euro (EZB). Ändert sich höchstens einmal am Tag. */
+export const useExchangeRate = () =>
+  useQuery({
+    queryKey: ['fx', 'usd-eur'],
+    queryFn: ({ signal }) => request<ExchangeRateResponse>('/v1/fx/usd-eur', { signal }),
+    staleTime: 60 * MINUTE,
+    retry: 1,
   });
 
 export const useFavorites = () =>

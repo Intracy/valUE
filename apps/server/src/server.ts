@@ -1,6 +1,7 @@
 import { loadConfig } from './config.js';
 import { migrate } from './db/migrate.js';
 import { createPool } from './db/pool.js';
+import { createExchangeRates } from './fx/ecb.js';
 import { buildApp } from './http/app.js';
 
 const config = loadConfig();
@@ -14,6 +15,7 @@ const app = await buildApp({
   rateLimitPerMinute: config.rateLimitPerMinute,
   trustProxy: config.trustProxy,
   logger: config.env !== 'test',
+  fx: createExchangeRates(db, { url: config.fxUrl }),
   scan: { ocrWorkers: config.scan.ocrWorkers, ratePerMinute: config.scan.ratePerMinute },
 });
 

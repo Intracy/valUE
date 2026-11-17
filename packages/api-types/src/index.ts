@@ -293,3 +293,15 @@ export interface ConfirmScanResponse {
 export interface DeleteCollectionItemResponse {
   removed: number;
 }
+
+/** Wechselkurs für die Umrechnung in der App: 1 Dollar = `rate` Euro. */
+export interface ExchangeRateResponse {
+  base: 'USD';
+  quote: 'EUR';
+  rate: number;
+  /** Tag des Referenzkurses (YYYY-MM-DD). */
+  date: string;
+  source: string;
+  /** true, wenn der letzte Abruf scheiterte und ein gespeicherter Kurs gilt. */
+  stale: boolean;
+}

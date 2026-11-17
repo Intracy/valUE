@@ -9,7 +9,8 @@ import { Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-
 import { useCard, useFavorites, useOwnedInSet, useSetQuantity, useToggleFavorite } from '@/api/queries';
 import { AppText } from '@/components/app-text';
 import { AreaChart } from '@/components/charts';
-import { formatCount, formatDate, formatMoney } from '@/components/format';
+import { FxNote, Price, useMoney } from '@/components/currency';
+import { formatCount, formatDate } from '@/components/format';
 import { successFeedback, tapFeedback } from '@/components/haptics';
 import { HoloFill } from '@/components/holo';
 import { Row, Section } from '@/components/list';
@@ -38,6 +39,7 @@ export default function KarteScreen() {
   const favorites = useFavorites();
   const toggleFavorite = useToggleFavorite();
   const [mode, setMode] = useState<Mode>('Raw');
+  const money = useMoney();
 
   if (card.isPending) return <LoadingView />;
   if (card.error) return <ErrorView error={card.error} onRetry={() => void card.refetch()} />;
@@ -68,7 +70,7 @@ export default function KarteScreen() {
     });
   };
   const onShare = () => {
-    const text = `${data.name} (${data.setName}${data.number ? `, ${data.number}` : ''}): ${formatMoney(data.price)} · valUE`;
+    const text = `${data.name} (${data.setName}${data.number ? `, ${data.number}` : ''}): ${money(data.price)} · valUE`;
     Share.share({ message: text, title: data.name }).catch(() => undefined);
   };
 
@@ -146,9 +148,7 @@ export default function KarteScreen() {
               {mode === 'Raw' ? 'Tagespreis ungegradet' : `${mode} ${top?.grade ?? ''}, Durchschnitt aus Verkäufen`}
             </AppText>
             <View style={styles.priceLine}>
-              <AppText variant="largeTitle" numeric>
-                {formatMoney(mode === 'Raw' ? data.price : (top?.price ?? null))}
-              </AppText>
+              <Price money={mode === 'Raw' ? data.price : (top?.price ?? null)} variant="largeTitle" />
               {mode === 'Raw' ? <ChangePill percent={delta === null ? null : Math.round(delta * 10) / 10} /> : null}
             </View>
             {mode === 'Raw' ? (
@@ -156,6 +156,7 @@ export default function KarteScreen() {
                 Stand {formatDate(data.priceUpdatedAt)}
               </AppText>
             ) : null}
+            <FxNote money={mode === 'Raw' ? data.price : (top?.price ?? null)} />
           </View>
 
           {mode === 'Raw' ? (
@@ -170,7 +171,7 @@ export default function KarteScreen() {
                 <AreaChart
                   points={points}
                   height={120}
-                  label={`Preis von ${formatMoney(first ? { amount: first.amount, currency: history.currency } : null)} am ${formatDate(first?.day)} auf ${formatMoney(last ? { amount: last.amount, currency: history.currency } : null)}`}
+                  label={`Preis von ${money(first ? { amount: first.amount, currency: history.currency } : null)} am ${formatDate(first?.day)} auf ${money(last ? { amount: last.amount, currency: history.currency } : null)}`}
                 />
               </Surface>
             ) : null
@@ -221,7 +222,7 @@ export default function KarteScreen() {
             <Row title="Nummer" value={data.number ?? 'unbekannt'} />
             <Row title="Seltenheit" value={data.rarity ?? 'unbekannt'} />
             <Row title="Set erschienen" value={formatDate(data.setReleaseDate)} />
-            <Row title="Niedrigster Preis" value={formatMoney(data.lowPrice)} isLast />
+            <Row title="Niedrigster Preis" value={money(data.lowPrice)} isLast />
           </Section>
 
           {printings.length > 0 ? (
@@ -230,7 +231,7 @@ export default function KarteScreen() {
                 <Row
                   key={printing.printing}
                   title={printing.printing || 'Standard'}
-                  value={formatMoney(printing.price)}
+                  value={money(printing.price)}
                   isLast={index === printings.length - 1}
                 />
               ))}
@@ -248,6 +249,7 @@ export default function KarteScreen() {
  */
 function GradeBlock({ grades }: { grades: CardGrade[] }) {
   const colors = usePalette();
+  const money = useMoney();
   const maxPopulation = Math.max(0, ...grades.map((grade) => grade.population ?? 0));
   const totalPopulation = grades.reduce((sum, grade) => sum + (grade.population ?? 0), 0);
   return (
@@ -268,7 +270,7 @@ function GradeBlock({ grades }: { grades: CardGrade[] }) {
             key={label}
             style={styles.gradeRow}
             accessible
-            accessibilityLabel={`${label}: ${formatMoney(grade.price)}, Population ${grade.population ?? 'unbekannt'}`}>
+            accessibilityLabel={`${label}: ${money(grade.price)}, Population ${grade.population ?? 'unbekannt'}`}>
             <AppText variant="subheadline" numeric style={styles.gradeLabel}>
               {label}
             </AppText>
@@ -279,7 +281,7 @@ function GradeBlock({ grades }: { grades: CardGrade[] }) {
               {grade.population === null ? '–' : formatCount(grade.population)}
             </AppText>
             <AppText variant="subheadline" numeric style={styles.gradePrice}>
-              {formatMoney(grade.price)}
+              {money(grade.price)}
             </AppText>
           </View>
         );

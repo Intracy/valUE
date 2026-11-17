@@ -6,7 +6,7 @@ import { CARD_ASPECT, MIN_TOUCH, space } from '@/theme/theme';
 import { usePalette } from '@/theme/use-palette';
 
 import { AppText } from './app-text';
-import { formatMoney } from './format';
+import { Price, useMoney } from './currency';
 import { rarityTier } from './rarity';
 import { ChangePill, ElementBadge, Stars } from './ui';
 
@@ -30,21 +30,25 @@ const THUMB = 40;
  */
 export function CardRow({ card, value, changePercent, detail, onPress, isLast }: Props) {
   const colors = usePalette();
+  const money = useMoney();
   const shown = value === undefined ? card.price : value;
   const subtitle = detail ?? [card.setName, card.number].filter(Boolean).join(' · ');
+  // Zeile und Preis sind getrennte Tippflächen: Die Zeile öffnet die Karte, der
+  // Preis schaltet Dollar/Euro um. Ineinander geschachtelt wären sie im Browser
+  // ungültiges HTML (Button im Button).
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${card.name}, ${subtitle}, ${formatMoney(shown)}`}
-      accessibilityHint="Öffnet die Kartendetails"
-      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.fill }]}>
-      <View style={[styles.thumb, { backgroundColor: colors.surfaceRaised }]}>
-        {card.imageUrl ? (
-          <Image source={card.imageUrl} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" recyclingKey={card.id} />
-        ) : null}
-      </View>
-      <View style={[styles.body, !isLast && { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+    <View style={[styles.row, !isLast && { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${card.name}, ${subtitle}, ${money(shown)}`}
+        accessibilityHint="Öffnet die Kartendetails"
+        style={({ pressed }) => [styles.open, pressed && { backgroundColor: colors.fill }]}>
+        <View style={[styles.thumb, { backgroundColor: colors.surfaceRaised }]}>
+          {card.imageUrl ? (
+            <Image source={card.imageUrl} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" recyclingKey={card.id} />
+          ) : null}
+        </View>
         <View style={styles.text}>
           <AppText variant="headline" numberOfLines={1}>
             {card.name}
@@ -57,31 +61,29 @@ export function CardRow({ card, value, changePercent, detail, onPress, isLast }:
             </AppText>
           </View>
         </View>
-        <View style={styles.right}>
-          <AppText variant="headline" numeric>
-            {formatMoney(shown)}
-          </AppText>
-          {changePercent !== undefined ? <ChangePill percent={changePercent} size="sm" /> : null}
-        </View>
+      </Pressable>
+      <View style={styles.right}>
+        <Price money={shown} variant="headline" />
+        {changePercent !== undefined ? <ChangePill percent={changePercent} size="sm" /> : null}
       </View>
-    </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingLeft: space.md, minHeight: MIN_TOUCH },
-  thumb: { width: THUMB, height: THUMB / CARD_ASPECT, borderRadius: 6, overflow: 'hidden' },
-  body: {
+  row: { flexDirection: 'row', alignItems: 'center', minHeight: MIN_TOUCH },
+  open: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.sm,
-    marginLeft: space.md,
-    paddingRight: space.md,
+    gap: space.md,
+    paddingLeft: space.md,
     paddingVertical: 10,
+    minHeight: MIN_TOUCH,
   },
+  thumb: { width: THUMB, height: THUMB / CARD_ASPECT, borderRadius: 6, overflow: 'hidden' },
   text: { flex: 1, gap: 3 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   subtitle: { flexShrink: 1 },
-  right: { alignItems: 'flex-end', gap: 4 },
+  right: { alignItems: 'flex-end', gap: 4, paddingLeft: space.sm, paddingRight: space.md },
 });

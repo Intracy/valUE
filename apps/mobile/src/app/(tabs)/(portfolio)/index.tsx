@@ -9,7 +9,8 @@ import { usePortfolio, useProfile } from '@/api/queries';
 import { AppText } from '@/components/app-text';
 import { CardRow } from '@/components/card-row';
 import { AreaChart } from '@/components/charts';
-import { formatCount, formatDate, formatMoney } from '@/components/format';
+import { FxNote, Price, useMoney } from '@/components/currency';
+import { formatCount, formatDate } from '@/components/format';
 import { Wordmark } from '@/components/holo';
 import { ErrorView, LoadingView } from '@/components/states';
 import { Content, scrollProps } from '@/components/tab-stack';
@@ -42,6 +43,7 @@ export default function PortfolioScreen() {
   const [range, setRange] = useState<PortfolioRange>('1M');
   const portfolio = usePortfolio(range);
   const profile = useProfile();
+  const money = useMoney();
 
   const initials = (profile.data?.displayName ?? '')
     .split(' ')
@@ -101,17 +103,18 @@ export default function PortfolioScreen() {
             Mein Portfolio
           </AppText>
           <View style={styles.valueLine}>
-            <AppText variant="display" numeric accessibilityRole="header" adjustsFontSizeToFit numberOfLines={1} style={styles.flexShrink}>
-              {formatMoney(data.value)}
-            </AppText>
+            <View style={styles.flexShrink}>
+              <Price money={data.value} variant="display" accessibilityRole="header" adjustsFontSizeToFit numberOfLines={1} />
+            </View>
             <ChangePill percent={data.change?.percent ?? null} />
           </View>
           {data.change && data.value ? (
             <AppText variant="footnote" tone={data.change.amount >= 0 ? 'positive' : 'negative'} numeric>
               {data.change.amount >= 0 ? '+' : '−'}
-              {formatMoney({ amount: Math.abs(data.change.amount), currency: data.value.currency })} {current.long}
+              {money({ amount: Math.abs(data.change.amount), currency: data.value.currency }).replace('≈ ', '')} {current.long}
             </AppText>
           ) : null}
+          <FxNote money={data.value} />
         </View>
 
         <AreaChart
@@ -119,7 +122,7 @@ export default function PortfolioScreen() {
           height={190}
           label={
             first && data.value
-              ? `Wertverlauf ${current.long}: von ${formatMoney({ amount: first.amount, currency: data.value.currency })} am ${formatDate(first.day)} auf ${formatMoney(data.value)}`
+              ? `Wertverlauf ${current.long}: von ${money({ amount: first.amount, currency: data.value.currency })} am ${formatDate(first.day)} auf ${money(data.value)}`
               : 'Noch kein Verlauf'
           }
         />

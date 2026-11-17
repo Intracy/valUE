@@ -8,7 +8,7 @@ import { useOwnedInSet, useRemoveCard, useSet, useSetQuantity } from '@/api/quer
 import { AppText } from '@/components/app-text';
 import { CardTile } from '@/components/card-tile';
 import { Ring } from '@/components/charts';
-import { formatMoney } from '@/components/format';
+import { useMoney } from '@/components/currency';
 import { successFeedback, tapFeedback } from '@/components/haptics';
 import { ProgressBar } from '@/components/progress-bar';
 import { ErrorView, LoadingView, MessageView } from '@/components/states';
@@ -35,6 +35,7 @@ export default function SetScreen() {
   const { setId } = useLocalSearchParams<{ setId: string }>();
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
+  const money = useMoney();
   const set = useSet(setId);
   const ownedQuery = useOwnedInSet(setId);
   const setQuantity = useSetQuantity();
@@ -139,7 +140,7 @@ export default function SetScreen() {
             </AppText>
           ) : have < total ? (
             <AppText variant="footnote" tone="secondary">
-              Fehlende zusammen {formatMoney({ amount: Math.round(missingValue * 100) / 100, currency })}
+              Fehlende zusammen {money({ amount: Math.round(missingValue * 100) / 100, currency })}
             </AppText>
           ) : (
             <AppText variant="footnote" tone="positive">

@@ -6,7 +6,8 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } fr
 import { useProfile, useUpdateProfile } from '@/api/queries';
 import { AppText } from '@/components/app-text';
 import { Ring } from '@/components/charts';
-import { formatCount, formatMoney } from '@/components/format';
+import { useMoney } from '@/components/currency';
+import { formatCount } from '@/components/format';
 import { HoloFill } from '@/components/holo';
 import { Row, Section } from '@/components/list';
 import { ProgressBar } from '@/components/progress-bar';
@@ -37,6 +38,7 @@ export default function ProfilScreen() {
   const colors = usePalette();
   const profile = useProfile();
   const updateProfile = useUpdateProfile();
+  const money = useMoney();
   const { preference, setPreference } = useAppearance();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
@@ -161,7 +163,7 @@ export default function ProfilScreen() {
           <Row title="Verschiedene Karten" value={formatCount(data.uniqueCards)} />
           <Row title="Karten insgesamt" value={formatCount(data.totalCards)} />
           <Row title="Vollständige Sets" value={formatCount(data.completedSets)} />
-          <Row title="Wert zum Tagespreis" value={formatMoney(data.collectionValue)} isLast />
+          <Row title="Wert zum Tagespreis" value={money(data.collectionValue)} isLast />
         </Section>
 
         <AppText variant="title3" style={styles.sectionTitle} accessibilityRole="header">

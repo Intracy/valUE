@@ -46,6 +46,8 @@ const schema = z.object({
   SYNC_POPULATION_MAX_CARDS: z.coerce.number().int().nonnegative().default(0),
   /** Preisverlauf so vieler Tage mitladen (1 Credit mehr je Karte; Free-Tarif höchstens 3). 0 = aus. */
   SYNC_HISTORY_DAYS: z.coerce.number().int().nonnegative().default(0),
+  /** Quelle des Wechselkurses (EZB-Tageskurs im XML-Format). Nur für Tests ändern. */
+  FX_URL: z.string().url().default('https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml'),
   /** Set-Liste höchstens so oft neu laden (kostet 1 Credit). */
   SYNC_SETS_REFRESH_HOURS: z.coerce.number().int().positive().default(168),
 });
@@ -74,6 +76,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
       ocrWorkers: value.SCAN_OCR_WORKERS,
       ratePerMinute: value.SCAN_RATE_PER_MINUTE,
     },
+    fxUrl: value.FX_URL,
     ppt: {
       apiKey: value.PPT_API_KEY,
       baseUrl: value.PPT_BASE_URL,

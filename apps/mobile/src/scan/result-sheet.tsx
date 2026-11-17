@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
-import { formatMoney } from '@/components/format';
+import { useMoney } from '@/components/currency';
 import { HoloFill } from '@/components/holo';
 import { rarityTier } from '@/components/rarity';
 import { ElementBadge, Stars } from '@/components/ui';
@@ -46,6 +46,7 @@ const matchLabel = (confidence: number) =>
  */
 export function ResultSheet({ result, busy, error, bottomInset, onConfirm, onRetry, onSearch, onClose }: Props) {
   const colors = usePalette();
+  const money = useMoney();
   const [step, setStep] = useState<Step>(() => initialStep(result));
   const [printing, setPrinting] = useState(() => (step.kind === 'confirm' ? defaultPrinting(step.candidate) : ''));
 
@@ -79,7 +80,7 @@ export function ResultSheet({ result, busy, error, bottomInset, onConfirm, onRet
               {candidate.rarity ? ` · ${candidate.rarity}` : ''}
             </AppText>
             <AppText variant="headline" style={styles.price}>
-              {formatMoney(candidate.price)}
+              {money(candidate.price)}
             </AppText>
             {result.outcome !== 'match' || candidate !== result.candidates[0] ? null : (
               <AppText variant="footnote" tone="positive">

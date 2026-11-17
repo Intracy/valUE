@@ -51,6 +51,7 @@ Der Vertrag steht als TypeScript-Typen in `packages/api-types`.
 | `PUT`/`DELETE /v1/me/favorites/:cardId` | Karte beobachten oder nicht mehr; Wiederholen ändert nichts | nie |
 | `POST /v1/me/scans` | Foto erkennen, liefert Ergebnis und Vorschläge. Begrenzt je Absender | nie |
 | `POST /v1/me/scans/:scanId/confirm` | Vorschlag bestätigen, Karte eintragen; genau einmal je Scan | nie |
+| `GET /v1/fx/usd-eur` | Wechselkurs Dollar → Euro (EZB-Referenzkurs), eine Stunde im Prozess gehalten; fällt die EZB aus, gilt der zuletzt gespeicherte Kurs (`stale: true`) | öffentlich, 1 Stunde |
 | `GET /healthz`, `GET /readyz` | Für Lastverteiler und Überwachung | |
 
 ## Scanner

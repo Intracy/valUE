@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import type { ReactNode } from 'react';
 
 import { queryClient } from '@/api/queries';
+import { CurrencyProvider } from '@/components/currency';
 import { AppearanceProvider } from '@/theme/appearance';
 import { usePalette, useScheme } from '@/theme/use-palette';
 
@@ -36,6 +37,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppearanceProvider>
+        <CurrencyProvider>
         <Themed>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -45,6 +47,7 @@ export default function RootLayout() {
             />
           </Stack>
         </Themed>
+        </CurrencyProvider>
       </AppearanceProvider>
     </QueryClientProvider>
   );

@@ -5,6 +5,7 @@ import type { ApiError } from '@value/api-types';
 import Fastify, { type FastifyInstance } from 'fastify';
 
 import type { Db } from '../db/pool.js';
+import { createExchangeRates, type ExchangeRates } from '../fx/ecb.js';
 import { createOcrPool, type OcrEngine } from '../scan/ocr.js';
 import { VisualIndex } from '../scan/visual-index.js';
 import { createAuthenticator } from './auth.js';
@@ -21,6 +22,8 @@ export interface AppOptions {
   rateLimitPerMinute?: number;
   trustProxy?: boolean;
   logger?: boolean;
+  /** Wechselkurse; ohne Angabe holt der Server den EZB-Referenzkurs. */
+  fx?: ExchangeRates;
   scan?: {
     /** Eigene Texterkennung, etwa in Tests. Sonst legt der Server einen Pool an. */
     ocr?: OcrEngine;
@@ -93,6 +96,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   registerCatalogRoutes(app, options.db, version);
   registerCollectionRoutes(app, options.db, authenticate);
   registerPortfolioRoutes(app, options.db, authenticate);
+
+  // Wechselkurs für die Umrechnung in der App. Für alle gleich, eine Stunde zwischenspeicherbar.
+  const fx = options.fx ?? createExchangeRates(options.db);
+  app.get('/v1/fx/usd-eur', async (_request, reply) => {
+    const rate = await fx.usdToEur();
+    if (!rate) return reply.code(503).send({ error: { code: 'fx_unavailable', message: 'Kein Wechselkurs verfügbar.' } });
+    reply.header('Cache-Control', rate.stale ? 'public, max-age=300' : 'public, max-age=3600, s-maxage=3600');
+    return rate;
+  });
 
   // Der Pool startet erst beim ersten Scan; der Index lädt erst beim ersten Scan.
   const ocr = options.scan?.ocr ?? createOcrPool(options.scan?.ocrWorkers ?? 2);

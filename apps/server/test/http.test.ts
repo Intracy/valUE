@@ -240,3 +240,56 @@ describe('Design-Erweiterungen', () => {
     expect(after.cards.map((card: { id: string }) => card.id)).toEqual(['demo-basalt-004']);
   });
 });
+
+describe('Wechselkurs Dollar → Euro', () => {
+  const ecbXml = `<?xml version="1.0" encoding="UTF-8"?>
+<gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01" xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref">
+  <Cube><Cube time='2026-11-17'><Cube currency='USD' rate='1.0800'/><Cube currency='JPY' rate='160.10'/></Cube></Cube>
+</gesmes:Envelope>`;
+
+  it('rechnet den EZB-Kurs um, merkt ihn sich und fällt bei Ausfall auf den gespeicherten zurück', async () => {
+    const { createExchangeRates } = await import('../src/fx/ecb.js');
+    let calls = 0;
+    let fail = false;
+    let clock = 0;
+    const fx = createExchangeRates(db, {
+      now: () => clock,
+      fetchImpl: (async () => {
+        calls += 1;
+        if (fail) throw new Error('offline');
+        return new Response(ecbXml, { status: 200 });
+      }) as typeof fetch,
+    });
+    const fxApp = await buildApp({ db, fx });
+    try {
+      const first = await fxApp.inject({ url: '/v1/fx/usd-eur' });
+      expect(first.statusCode).toBe(200);
+      expect(first.headers['cache-control']).toContain('max-age=3600');
+      // 1 € = 1,08 $, also 1 $ = 0,925926 €
+      expect(first.json()).toMatchObject({ base: 'USD', quote: 'EUR', rate: 0.925926, date: '2026-11-17', stale: false });
+
+      await fxApp.inject({ url: '/v1/fx/usd-eur' });
+      expect(calls).toBe(1); // innerhalb einer Stunde aus dem Speicher
+
+      clock += 2 * 60 * 60 * 1000;
+      fail = true;
+      const fallback = (await fxApp.inject({ url: '/v1/fx/usd-eur' })).json();
+      expect(fallback).toMatchObject({ rate: 0.925926, stale: true });
+      expect(calls).toBe(2);
+    } finally {
+      await fxApp.close();
+    }
+  });
+
+  it('meldet 503, wenn es weder einen Abruf noch einen gespeicherten Kurs gibt', async () => {
+    await db.query(`delete from meta where key = 'fx_usd_eur'`);
+    const { createExchangeRates } = await import('../src/fx/ecb.js');
+    const fx = createExchangeRates(db, { fetchImpl: (async () => new Response('kaputt', { status: 500 })) as typeof fetch });
+    const fxApp = await buildApp({ db, fx });
+    try {
+      expect((await fxApp.inject({ url: '/v1/fx/usd-eur' })).statusCode).toBe(503);
+    } finally {
+      await fxApp.close();
+    }
+  });
+});

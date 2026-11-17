@@ -26,6 +26,8 @@ Element-Farben: Feuer `#FF7A3D`, Wasser `#3DA5FF`, Pflanze `#3DCB6C`, Elektro `#
 
 **Schrift:** SF Pro Rounded auf iOS (`ui-rounded`) für Titel und Zahlen, Inter oder Systemschrift im Browser. Grade wie im Moodboard: Large Title 34, Title 28, Headline 17, Body 17, Caption 13; dazu ein Anzeigegrad 40 für den Portfolio-Wert. **Radien** 20 (Flächen) und 12 (Elemente darin), **8-Punkt-Raster**.
 
+**Währung:** Die Datenquelle liefert Dollar. Ein Tipp auf einen Dollarpreis rechnet alle Dollarpreise der App zum EZB-Referenzkurs in Euro um; umgerechnete Beträge tragen ein „≈“, darunter steht Kurs und Stand. Ein weiterer Tipp zeigt wieder Dollar. Die Wahl bleibt auf dem Gerät gespeichert (`components/currency.tsx`).
+
 **Darstellung:** Dunkel (Standard), Hell oder System, im Profil umschaltbar und auf dem Gerät gespeichert. Auf dem Gerät stellt die App auch Tab- und Navigationsleiste des Systems um (`Appearance.setColorScheme`).
 
 **Bildschirme aus den Layout-Screens des Moodboards**

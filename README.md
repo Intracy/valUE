@@ -38,6 +38,7 @@ Dieses Repository enthält das Grundgerüst und einen lauffähigen Prototyp: App
 | 🃏 | **Kartendetail**: Raw / PSA / CGC, Wert-Verlauf, Grading-Population, Teilen, Beobachten, Bestand je Variante | ✅ Prototyp |
 | 🛒 | **Markt**: Suche, größte Gewinner und Verlierer (24 h, 7 und 30 Tage), beobachtete Karten | ✅ Prototyp |
 | 🏅 | **Profil**: Level-Ring, Sammelscore, Vintage-Score, 12 Achievements von Bronze bis Holo, Seltenheitsverteilung | ✅ Prototyp |
+| 💱 | **Dollar ↔ Euro**: Tipp auf einen Dollarpreis rechnet alle Preise zum EZB-Tageskurs in Euro um, ein weiterer Tipp zeigt wieder Dollar | ✅ Prototyp |
 | 🔥 | **Elemente** als Abzeichen und Filter, immer mit Symbol und Name | ✅ Prototyp |
 | 🌗 | **Dark und Light Theme** nach dem Design-Moodboard, wählbar (Dunkel, Hell, System), iPhone, iPad, Android, Browser | ✅ Prototyp |
 | 🎯 | Scanner mit gelerntem Bildmodell, gemessen an echten Fotos | 🔜 nächste Phase |
@@ -174,7 +175,7 @@ Der kostenlose Tarif hat 100 Credits am Tag, ein Set kostet einen Credit je Kart
 
 ```bash
 npm run typecheck      # Server, App und Vertrag
-npm test               # 50 Servertests gegen PostgreSQL, darunter Scanner mit simulierten Fotos
+npm test               # 52 Servertests gegen PostgreSQL, darunter Scanner mit simulierten Fotos
 ```
 
 Lasttest mit **50.000 Karten, 10.000 Nutzern und 3 Mio. Sammlungseinträgen** auf einer Maschine mit 2 Kernen, ohne Fehler:
