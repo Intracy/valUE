@@ -21,7 +21,6 @@ DIR="${VALUE_DIR:-/volume1/docker/valUE}"
 BRANCH="${VALUE_BRANCH:-main}"
 WEB_PORT=8095        # Port der Web-App auf der NAS (siehe deploy/docker-compose.yml)
 TAILSCALE_PORT=8443  # HTTPS-Port im Tailnet
-TAILSCALE=/var/packages/Tailscale/target/bin/tailscale
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 git_() { docker run --rm -v "$DIR":/repo -w /repo alpine/git:latest -c safe.directory=/repo "$@"; }
@@ -75,12 +74,24 @@ curl -fsS "http://127.0.0.1:$WEB_PORT/readyz" >/dev/null 2>&1 || { log "App antw
 log "App läuft auf http://$(hostname):$WEB_PORT"
 
 # 4. Über Tailscale mit HTTPS freigeben (die iPhone-Kamera braucht HTTPS)
-if [ -x "$TAILSCALE" ]; then
-  if "$TAILSCALE" serve --bg --https="$TAILSCALE_PORT" "http://127.0.0.1:$WEB_PORT" >/dev/null 2>&1; then
+# Der Pfad hängt von der Paketversion ab.
+TAILSCALE=""
+for candidate in /var/packages/Tailscale/target/bin/tailscale /volume1/@appstore/Tailscale/bin/tailscale \
+                 /var/packages/Tailscale/target/tailscale "$(command -v tailscale || true)"; do
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then TAILSCALE="$candidate"; break; fi
+done
+if [ -z "$TAILSCALE" ]; then
+  log "Tailscale-Befehl nicht gefunden. Gesucht: /var/packages/Tailscale/target/bin, /volume1/@appstore/Tailscale/bin."
+  log "Ohne HTTPS: http://<Tailscale-IP der NAS>:$WEB_PORT"
+  find /var/packages/Tailscale/target/ -maxdepth 2 -name 'tailscale*' 2>&1 | sed 's/^/    /' || true
+else
+  log "Tailscale: $TAILSCALE"
+  if serve_out="$("$TAILSCALE" serve --bg --https="$TAILSCALE_PORT" "http://127.0.0.1:$WEB_PORT" 2>&1)"; then
     name="$("$TAILSCALE" status --json 2>/dev/null | sed -n 's/.*"DNSName": *"\([^"]*\)\.".*/\1/p' | head -1)"
     log "Im Tailnet: https://${name:-<NAS-Name>.<tailnet>.ts.net}:$TAILSCALE_PORT"
   else
-    log "Tailscale Serve nicht möglich (HTTPS im Tailscale-Admin unter DNS aktivieren)."
+    log "Tailscale Serve nicht möglich: $serve_out"
+    log "Meist fehlt im Tailscale-Admin unter DNS die Option \"HTTPS Certificates\"."
     log "Ohne HTTPS: http://<Tailscale-IP der NAS>:$WEB_PORT (Kamera-Scan geht dann nicht)."
   fi
 fi
