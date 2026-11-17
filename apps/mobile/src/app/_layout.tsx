@@ -27,8 +27,6 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="karte/[cardId]" options={{ title: 'Karte', headerBackTitle: 'Zurück' }} />
-          {/* Der Scanner ist eine eigene Aufgabe und erscheint deshalb als Blatt über der App. */}
-          <Stack.Screen name="scan" options={{ title: 'Scannen', presentation: 'modal' }} />
         </Stack>
       </ThemeProvider>
     </QueryClientProvider>

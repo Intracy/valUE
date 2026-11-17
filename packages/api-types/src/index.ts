@@ -135,3 +135,45 @@ export interface ProfileResponse {
 export interface ApiError {
   error: { code: string; message: string };
 }
+
+export type ScanOutcome = 'match' | 'unsure' | 'none';
+
+/** Ein Vorschlag des Scanners. */
+export interface ScanCandidate extends CardSummary {
+  setName: string;
+  /** Druckvarianten der Karte laut Katalog, etwa "Normal", "Reverse Holofoil". */
+  printings: string[];
+  /** Übereinstimmung von 0 bis 1. */
+  confidence: number;
+}
+
+export interface ScanRequest {
+  /** Foto der Karte als Base64 (JPEG oder PNG), zugeschnitten auf den Suchrahmen. */
+  image: string;
+}
+
+export interface ScanResponse {
+  scanId: string;
+  /** match = eine Karte klar vorn, unsure = mehrere möglich, none = nichts erkannt. */
+  outcome: ScanOutcome;
+  candidates: ScanCandidate[];
+  /** Was die Texterkennung gelesen hat, zur Erklärung in der App. */
+  read: { name: string | null; number: string | null };
+  durationMs: number;
+}
+
+export interface ConfirmScanRequest {
+  cardId: string;
+  printing?: string;
+}
+
+export interface ConfirmScanResponse {
+  item: CollectionItem;
+  cardName: string;
+  /** Exemplare dieser Karte in der Sammlung, über alle Varianten. */
+  totalQuantity: number;
+}
+
+export interface DeleteCollectionItemResponse {
+  removed: number;
+}

@@ -42,8 +42,15 @@ Der Vertrag steht als TypeScript-Typen in `packages/api-types`.
 | `GET /v1/me/collection/sets` | Fortschritt je Set | nie |
 | `GET /v1/me/collection/sets/:setId` | Eigene Karten in einem Set | nie |
 | `PUT /v1/me/collection/items/:cardId` | Bestand setzen, Menge 0 entfernt | nie |
+| `DELETE /v1/me/collection/items/:cardId` | Karte mit allen Varianten entfernen | nie |
 | `GET /v1/me/profile` | Sammelscore, Vintage-Score, Wert, volle Sets | nie |
+| `POST /v1/me/scans` | Foto erkennen, liefert Ergebnis und Vorschläge. Begrenzt je Absender | nie |
+| `POST /v1/me/scans/:scanId/confirm` | Vorschlag bestätigen, Karte eintragen; genau einmal je Scan | nie |
 | `GET /healthz`, `GET /readyz` | Für Lastverteiler und Überwachung | |
+
+## Scanner
+
+Erkennung aus Bildvergleich, Kartenname und Kartennummer, Details und Messwerte in [SCANNER.md](SCANNER.md). Für die Skalierung wichtig: Die Texterkennung belegt pro Scan einige hundert Millisekunden einen Kern. Jeder Prozess hat dafür einen eigenen kleinen Pool (`SCAN_OCR_WORKERS`), weitere Scans warten. Mehr Scan-Last heißt mehr Instanzen; mittelfristig wandert die Erkennung aufs Gerät.
 
 ## Abgleich mit Pokemon Price Tracker
 

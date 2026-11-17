@@ -4,7 +4,7 @@
 
 **Deine Sammelkarten. Ihr Wert. Jedes Set im Blick.**
 
-Sammlung erfassen, Master-Sets vervollständigen, Tagespreise verfolgen. Für iOS, Android und das Web aus einem Code.
+Karten scannen, Master-Sets vervollständigen, Tagespreise verfolgen. Für iOS, Android und das Web aus einem Code.
 
 [![CI](https://github.com/Intracy/valUE/actions/workflows/ci.yml/badge.svg)](https://github.com/Intracy/valUE/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/Status-Prototyp-orange)
@@ -13,7 +13,7 @@ Sammlung erfassen, Master-Sets vervollständigen, Tagespreise verfolgen. Für iO
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 
-<img src="docs/screenshots/hero.png" alt="valUE: Sammlungsübersicht, Master-Set-Raster und Kartendetail" width="100%">
+<img src="docs/screenshots/hero.png" alt="valUE: Sammlungsübersicht, Scanner mit Nachfrage und Master-Set-Raster" width="100%">
 
 <sub>Aufnahmen der Web-Fassung mit erfundenen Demo-Daten. Kartennamen und Motive sind Platzhalter und zeigen keine echten Karten.</sub>
 
@@ -31,6 +31,7 @@ Dieses Repository enthält das Grundgerüst und einen lauffähigen Prototyp: App
 
 | | Funktion | Stand |
 | --- | --- | --- |
+| 📷 | **Scanner**: Karte mit der Kamera erkennen, Nachfrage vor dem Eintragen, Auswahl bei Unsicherheit | ✅ Prototyp |
 | 🗂️ | **Master-Sets**: alle Karten eines Sets im Raster, vorhandene farbig, fehlende ausgegraut, Filter „Fehlend“ und „Vorhanden“ | ✅ Prototyp |
 | 💶 | **Restkosten**: was die fehlenden Karten eines Sets zum Tagespreis zusammen kosten | ✅ Prototyp |
 | 🃏 | **Kartendetail** mit Tagespreis, Preisverlauf, Varianten und Fakten | ✅ Prototyp |
@@ -38,12 +39,27 @@ Dieses Repository enthält das Grundgerüst und einen lauffähigen Prototyp: App
 | 🏅 | **Sammelscore und Vintage-Score** mit Stufen | ✅ Prototyp |
 | 🔎 | **Suche** nach Kartennamen über alle Sets | ✅ Prototyp |
 | 🌗 | Hell und Dunkel, iPhone, iPad, Android und Browser | ✅ Prototyp |
-| 📷 | **Scanner**: Karte mit der Kamera erkennen, auf dem Gerät | 🔜 nächste Phase |
+| 🎯 | Scanner mit gelerntem Bildmodell, gemessen an echten Fotos | 🔜 nächste Phase |
 | 🏆 | Achievements und Profil-Schmuck | 🔜 geplant |
 | 🇪🇺 | Euro-Preise von Cardmarket, Graded-Preise, Population | 🔜 geplant |
 | 🔐 | Anmeldung mit E-Mail, Apple und Google, Abo und Einmalkauf | 🔜 geplant |
 
 ## Screenshots
+
+### Scanner
+
+<table>
+  <tr>
+    <td align="center" width="25%"><img src="docs/screenshots/scanner-live.png" alt="Scanner mit Suchrahmen" width="200"><br><sub><b>Karte in den Rahmen</b><br>Kamera-Knopf in der Mitte</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/scanner-confirm.png" alt="Nachfrage vor dem Eintragen" width="200"><br><sub><b>„Ist das deine Karte?“</b><br>mit Varianten-Auswahl</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/scanner-choose.png" alt="Auswahl bei Unsicherheit" width="200"><br><sub><b>„Welche Karte ist es?“</b><br>Vorschläge bei Unsicherheit</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/scanner-added.png" alt="Karte hinzugefügt" width="200"><br><sub><b>Hinzugefügt</b><br>bereit für die nächste Karte</sub></td>
+  </tr>
+</table>
+
+Erkannt wird über Bildvergleich, Kartenname und Kartennummer zusammen. Nichts landet ohne Bestätigung in der Sammlung. Ablauf, Messwerte und Grenzen: [docs/SCANNER.md](docs/SCANNER.md).
+
+### App
 
 <table>
   <tr>
@@ -93,6 +109,7 @@ flowchart LR
 - **Katalog-Antworten sind zwischenspeicherbar.** ETag und `Cache-Control` lassen ein CDN die meisten Abrufe selbst beantworten.
 - **Mehr Nutzer heißt mehr Server-Instanzen.** Die API hält keinen Zustand; die größte Tabelle ist nach Nutzer aufgeteilt.
 - **Der Anbieter ist austauschbar.** Er sitzt hinter einer einzigen Schnittstelle (`PriceSource`).
+- **Der Scanner erkennt auf dem Server** und speichert keine Fotos. Die Texterkennung ist der rechenintensivste Teil und deshalb je Prozess und je Absender begrenzt.
 
 Mehr dazu in [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md), die Umsetzung der Apple-Richtlinien in [docs/DESIGN.md](docs/DESIGN.md).
 
@@ -102,6 +119,7 @@ Mehr dazu in [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md), die Umsetzung der Apple
 | --- | --- |
 | App | Expo SDK 58, React Native, Expo Router, TanStack Query, `expo-image`, SF Symbols über `expo-symbols` |
 | Server | Node.js 22, Fastify 5, PostgreSQL 16 (Partitionierung, Trigramm-Suche), Zod |
+| Scanner | `expo-camera`, `expo-image-manipulator`, sharp, Tesseract (tesseract.js) |
 | Vertrag | Gemeinsame TypeScript-Typen in `packages/api-types` |
 | Qualität | Vitest, GitHub Actions, Lasttest mit autocannon |
 
@@ -144,7 +162,7 @@ Der kostenlose Tarif hat 100 Credits am Tag, ein Set kostet einen Credit je Kart
 
 ```bash
 npm run typecheck      # Server, App und Vertrag
-npm test               # 30 Servertests gegen PostgreSQL
+npm test               # 39 Servertests gegen PostgreSQL, darunter Scanner mit simulierten Fotos
 ```
 
 Lasttest mit **50.000 Karten, 10.000 Nutzern und 3 Mio. Sammlungseinträgen** auf einer Maschine mit 2 Kernen, ohne Fehler:
@@ -166,12 +184,14 @@ apps/
   mobile/            App für iOS, Android und Web (Expo)
     src/app/         Bildschirme (dateibasiertes Routing)
     src/api/         Anbindung an den eigenen Server
+    src/scan/        Suchrahmen, Fotoaufbereitung, Ergebnisblatt
     src/components/  Bausteine: Kartenkachel, Listen, Zustände
     src/theme/       Farben, Schrift und Abstände nach den Apple-Richtlinien
   server/            API-Server und Abgleich
     migrations/      Datenbankschema
     src/sources/     Anbindung an Pokemon Price Tracker
     src/sync/        Abgleich (Einzelabrufe oder Tages-Export)
+    src/scan/        Scanner: Fingerabdruck, Texterkennung, Bewertung
     src/http/        Endpunkte /v1
 packages/
   api-types/         Vertrag zwischen App und Server
@@ -182,9 +202,10 @@ docs/                Architektur, Gestaltung, Screenshots
 
 - [x] Grundgerüst: App, Server, Datenbank, Abgleich, Tests, CI
 - [x] Master-Set-Ansicht, Kartendetail, Suche, Profil mit Scores
+- [x] Scanner mit Nachfrage und Auswahl bei Unsicherheit
 - [ ] Erster Lauf im iOS-Simulator und auf Android
 - [ ] Zuordnung gegen die echte API prüfen, erster echter Abgleich
-- [ ] Scanner auf dem Gerät, gemessen an echten Fotos
+- [ ] Scanner an echten Fotos messen, gelerntes Bildmodell
 - [ ] Achievements und Profil-Schmuck
 - [ ] Anmeldung, Abo und Einmalkauf
 - [ ] Euro-Preise, Graded-Preise und Population

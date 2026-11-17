@@ -5,11 +5,14 @@ import type { ApiError } from '@value/api-types';
 import Fastify, { type FastifyInstance } from 'fastify';
 
 import type { Db } from '../db/pool.js';
+import { createOcrPool, type OcrEngine } from '../scan/ocr.js';
+import { VisualIndex } from '../scan/visual-index.js';
 import { createAuthenticator } from './auth.js';
 import { createCatalogVersion } from './catalog-version.js';
 import { HttpError } from './errors.js';
 import { registerCatalogRoutes } from './routes/catalog.js';
 import { registerCollectionRoutes } from './routes/collection.js';
+import { registerScanRoutes } from './routes/scan.js';
 
 export interface AppOptions {
   db: Db;
@@ -17,6 +20,12 @@ export interface AppOptions {
   rateLimitPerMinute?: number;
   trustProxy?: boolean;
   logger?: boolean;
+  scan?: {
+    /** Eigene Texterkennung, etwa in Tests. Sonst legt der Server einen Pool an. */
+    ocr?: OcrEngine;
+    ocrWorkers?: number;
+    ratePerMinute?: number;
+  };
 }
 
 /**
@@ -33,7 +42,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   await app.register(compress, { threshold: 1024 });
   await app.register(cors, {
     origin: options.corsOrigins?.length ? options.corsOrigins : true,
-    methods: ['GET', 'PUT', 'POST', 'OPTIONS'],
+    methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
     maxAge: 86_400,
   });
   if (options.rateLimitPerMinute) {
@@ -78,8 +87,21 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     }
   });
 
-  registerCatalogRoutes(app, options.db, createCatalogVersion(options.db));
-  registerCollectionRoutes(app, options.db, createAuthenticator(options.db));
+  const version = createCatalogVersion(options.db);
+  const authenticate = createAuthenticator(options.db);
+  registerCatalogRoutes(app, options.db, version);
+  registerCollectionRoutes(app, options.db, authenticate);
+
+  // Der Pool startet erst beim ersten Scan; der Index lädt erst beim ersten Scan.
+  const ocr = options.scan?.ocr ?? createOcrPool(options.scan?.ocrWorkers ?? 2);
+  if (!options.scan?.ocr) app.addHook('onClose', () => ocr.close());
+  registerScanRoutes(app, {
+    db: options.db,
+    authenticate,
+    index: new VisualIndex(options.db, () => version.get()),
+    ocr,
+    ratePerMinute: options.scan?.ratePerMinute,
+  });
 
   return app;
 }

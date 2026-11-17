@@ -1,7 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Stack } from 'expo-router/stack';
-import { SymbolView } from 'expo-symbols';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useCollectionProgress, useProfile, useSets } from '@/api/queries';
 import { AppText } from '@/components/app-text';
@@ -10,7 +8,7 @@ import { Row, Section } from '@/components/list';
 import { ProgressBar } from '@/components/progress-bar';
 import { ErrorView, LoadingView, MessageView } from '@/components/states';
 import { Content, scrollProps } from '@/components/tab-stack';
-import { MIN_TOUCH, radius, space } from '@/theme/theme';
+import { radius, space } from '@/theme/theme';
 import { usePalette } from '@/theme/use-palette';
 
 export default function SammlungScreen() {
@@ -19,21 +17,6 @@ export default function SammlungScreen() {
   const profile = useProfile();
   const progress = useCollectionProgress();
   const sets = useSets();
-
-  const scanButton = (
-    <Pressable
-      onPress={() => router.push('/scan')}
-      accessibilityRole="button"
-      accessibilityLabel="Karte scannen"
-      hitSlop={8}
-      style={styles.headerButton}>
-      <SymbolView
-        name={{ ios: 'camera.viewfinder', android: 'photo_camera', web: 'photo_camera' }}
-        size={22}
-        tintColor={colors.tint}
-      />
-    </Pressable>
-  );
 
   const loading = profile.isPending || progress.isPending || sets.isPending;
   const error = profile.error ?? progress.error ?? sets.error;
@@ -53,9 +36,9 @@ export default function SammlungScreen() {
       <MessageView
         symbol={{ ios: 'rectangle.stack.badge.plus', android: 'collections', web: 'collections' }}
         title="Noch keine Karten"
-        description="Öffne ein Set und halte eine Karte gedrückt, um sie einzutragen. Der Scanner folgt."
-        actionLabel="Sets ansehen"
-        onAction={() => router.push('/sets')}
+        description="Scanne deine erste Karte mit der Kamera unten in der Mitte, oder trage sie in einem Set per langem Druck ein."
+        actionLabel="Karte scannen"
+        onAction={() => router.push('/scan')}
       />
     );
   } else {
@@ -101,7 +84,6 @@ export default function SammlungScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerRight: () => scanButton }} />
       <ScrollView
         {...scrollProps}
         contentContainerStyle={styles.scroll}
@@ -116,7 +98,6 @@ export default function SammlungScreen() {
 
 const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingBottom: space.xl },
-  headerButton: { minWidth: MIN_TOUCH, minHeight: MIN_TOUCH, alignItems: 'center', justifyContent: 'center' },
   summary: { borderRadius: radius.lg, padding: space.md, gap: space.xs, marginBottom: space.lg },
   rowProgress: { marginTop: space.sm },
 });

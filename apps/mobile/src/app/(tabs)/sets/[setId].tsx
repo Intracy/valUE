@@ -4,7 +4,7 @@ import { Stack } from 'expo-router/stack';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { useOwnedInSet, useSet, useSetQuantity } from '@/api/queries';
+import { useOwnedInSet, useRemoveCard, useSet, useSetQuantity } from '@/api/queries';
 import { AppText } from '@/components/app-text';
 import { CardTile } from '@/components/card-tile';
 import { formatMoney } from '@/components/format';
@@ -34,6 +34,7 @@ export default function SetScreen() {
   const set = useSet(setId);
   const ownedQuery = useOwnedInSet(setId);
   const setQuantity = useSetQuantity();
+  const removeCard = useRemoveCard();
   const [filter, setFilter] = useState<Filter>('alle');
 
   // Spaltenzahl aus der Breite: Handy 3, iPad und Browser entsprechend mehr.
@@ -62,12 +63,16 @@ export default function SetScreen() {
   );
   const toggle = useCallback(
     (card: CardSummary) => {
-      const has = owned.has(card.id);
-      if (has) tapFeedback();
-      else successFeedback();
-      setQuantity.mutate({ cardId: card.id, setId: card.setId, quantity: has ? 0 : 1 });
+      // Austragen entfernt alle Varianten der Karte, Eintragen legt ein Exemplar ohne Variante an.
+      if (owned.has(card.id)) {
+        tapFeedback();
+        removeCard.mutate({ cardId: card.id, setId: card.setId });
+      } else {
+        successFeedback();
+        setQuantity.mutate({ cardId: card.id, setId: card.setId, quantity: 1 });
+      }
     },
-    [owned, setQuantity],
+    [owned, setQuantity, removeCard],
   );
 
   if (set.isPending) return <LoadingView />;

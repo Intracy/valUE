@@ -7,6 +7,11 @@ import {
 } from '@tanstack/react-query';
 import type {
   CardDetailResponse,
+  ConfirmScanRequest,
+  ConfirmScanResponse,
+  DeleteCollectionItemResponse,
+  ScanRequest,
+  ScanResponse,
   CollectionProgressResponse,
   CollectionSetResponse,
   ProfileResponse,
@@ -142,6 +147,60 @@ export function useSetQuantity() {
       if (context) client.setQueryData(context.key, context.previous);
     },
     onSettled: (_data, _error, { setId }) => {
+      void client.invalidateQueries({ queryKey: keys.ownedInSet(setId) });
+      void client.invalidateQueries({ queryKey: keys.progress });
+      void client.invalidateQueries({ queryKey: keys.profile });
+    },
+  });
+}
+
+/** Karte mit allen Varianten aus der Sammlung entfernen. Sofort sichtbar, bei Fehler zurück. */
+export function useRemoveCard() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cardId }: { cardId: string; setId: string }) =>
+      authedRequest<DeleteCollectionItemResponse>(`/v1/me/collection/items/${encodeURIComponent(cardId)}`, {
+        method: 'DELETE',
+      }),
+    onMutate: async ({ cardId, setId }) => {
+      const key = keys.ownedInSet(setId);
+      await client.cancelQueries({ queryKey: key });
+      const previous = client.getQueryData<CollectionSetResponse>(key);
+      client.setQueryData<CollectionSetResponse>(key, (current) => ({
+        setId,
+        items: (current?.items ?? []).filter((item) => item.cardId !== cardId),
+      }));
+      return { previous, key };
+    },
+    onError: (_error, _input, context) => {
+      if (context) client.setQueryData(context.key, context.previous);
+    },
+    onSettled: (_data, _error, { setId }) => {
+      void client.invalidateQueries({ queryKey: keys.ownedInSet(setId) });
+      void client.invalidateQueries({ queryKey: keys.progress });
+      void client.invalidateQueries({ queryKey: keys.profile });
+    },
+  });
+}
+
+/** Foto zur Erkennung schicken. Das Foto wird auf dem Server nicht gespeichert. */
+export function useScanCard() {
+  return useMutation({
+    mutationFn: (image: string) =>
+      authedRequest<ScanResponse>('/v1/me/scans', { method: 'POST', body: { image } satisfies ScanRequest }),
+  });
+}
+
+/** Erkannte Karte bestätigen und in die Sammlung übernehmen. */
+export function useConfirmScan() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ scanId, ...body }: ConfirmScanRequest & { scanId: string; setId: string }) =>
+      authedRequest<ConfirmScanResponse>(`/v1/me/scans/${scanId}/confirm`, {
+        method: 'POST',
+        body: { cardId: body.cardId, printing: body.printing } satisfies ConfirmScanRequest,
+      }),
+    onSuccess: (_data, { setId }) => {
       void client.invalidateQueries({ queryKey: keys.ownedInSet(setId) });
       void client.invalidateQueries({ queryKey: keys.progress });
       void client.invalidateQueries({ queryKey: keys.profile });

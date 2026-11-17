@@ -28,6 +28,22 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "valUE nutzt die Kamera, um Sammelkarten zu erkennen. Das Foto dient nur der Erkennung und wird nicht gespeichert.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "valUE öffnet ein Foto aus deiner Mediathek, um die Karte darauf zu erkennen.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#5856D6",

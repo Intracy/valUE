@@ -27,13 +27,18 @@ export default function KarteScreen() {
   if (card.error) return <ErrorView error={card.error} onRetry={() => void card.refetch()} />;
 
   const { card: data, printings, history } = card.data;
-  const quantity =
-    ownedQuery.data?.items.filter((item) => item.cardId === data.id).reduce((sum, item) => sum + item.quantity, 0) ?? 0;
-  // Die Menge gilt in dieser ersten Fassung für die Karte als Ganzes, noch nicht je Variante.
-  const change = (next: number) => {
-    if (next > quantity && quantity === 0) successFeedback();
+  const owned = ownedQuery.data?.items.filter((item) => item.cardId === data.id) ?? [];
+  const countOf = (printing: string) => owned.find((item) => item.printing === printing)?.quantity ?? 0;
+  // Eine Zeile je Variante laut Katalog. "Ohne Variante" nur, wenn es dort Exemplare gibt
+  // (etwa aus dem Set-Raster) oder der Katalog keine Varianten kennt.
+  const rows = [
+    ...printings.map((entry) => entry.printing),
+    ...(countOf('') > 0 || printings.length === 0 ? [''] : []),
+  ];
+  const change = (printing: string, next: number) => {
+    if (next > countOf(printing) && owned.length === 0) successFeedback();
     else tapFeedback();
-    setQuantity.mutate({ cardId: data.id, setId: data.setId, quantity: Math.max(0, next) });
+    setQuantity.mutate({ cardId: data.id, setId: data.setId, printing, quantity: Math.max(0, next) });
   };
 
   const points = history.points;
@@ -73,22 +78,36 @@ export default function KarteScreen() {
           </View>
 
           <Section title="In meiner Sammlung">
-            <View style={styles.stepper}>
-              <AppText variant="body" style={styles.stepperLabel}>
-                {quantity === 0 ? 'Nicht vorhanden' : `${quantity} vorhanden`}
-              </AppText>
-              <StepButton
-                label="Eine Karte entfernen"
-                symbol={{ ios: 'minus', android: 'remove', web: 'remove' }}
-                disabled={quantity === 0}
-                onPress={() => change(quantity - 1)}
-              />
-              <StepButton
-                label="Eine Karte hinzufügen"
-                symbol={{ ios: 'plus', android: 'add', web: 'add' }}
-                onPress={() => change(quantity + 1)}
-              />
-            </View>
+            {rows.map((printing, index) => {
+              const count = countOf(printing);
+              const label = printing || 'Ohne Variante';
+              return (
+                <View
+                  key={printing || 'ohne'}
+                  style={[
+                    styles.stepper,
+                    index < rows.length - 1 && { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth },
+                  ]}>
+                  <View style={styles.stepperLabel}>
+                    <AppText variant="body">{label}</AppText>
+                    <AppText variant="footnote" tone="secondary">
+                      {count === 0 ? 'Nicht vorhanden' : `${count} vorhanden`}
+                    </AppText>
+                  </View>
+                  <StepButton
+                    label={`${label}: ein Exemplar entfernen`}
+                    symbol={{ ios: 'minus', android: 'remove', web: 'remove' }}
+                    disabled={count === 0}
+                    onPress={() => change(printing, count - 1)}
+                  />
+                  <StepButton
+                    label={`${label}: ein Exemplar hinzufügen`}
+                    symbol={{ ios: 'plus', android: 'add', web: 'add' }}
+                    onPress={() => change(printing, count + 1)}
+                  />
+                </View>
+              );
+            })}
           </Section>
 
           {points.length >= 2 ? (
@@ -119,7 +138,7 @@ export default function KarteScreen() {
           </Section>
 
           {printings.length > 0 ? (
-            <Section title="Varianten" footer="Graded-Preise und Population folgen mit dem Business-Tarif der Datenquelle.">
+            <Section title="Preise je Variante" footer="Graded-Preise und Population folgen mit dem Business-Tarif der Datenquelle.">
               {printings.map((printing, index) => (
                 <Row
                   key={printing.printing}

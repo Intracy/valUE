@@ -4,6 +4,7 @@ import type {
   CollectionProgressResponse,
   CollectionSetResponse,
   CollectionSource,
+  DeleteCollectionItemResponse,
   ProfileResponse,
   PutCollectionItemRequest,
   PutCollectionItemResponse,
@@ -126,12 +127,26 @@ export function registerCollectionRoutes(app: FastifyInstance, db: Db, authentic
     },
   );
 
+  // Entfernt eine Karte mit allen Varianten, etwa beim Austragen im Set-Raster.
+  app.delete<{ Params: { cardId: string } }>(
+    '/v1/me/collection/items/:cardId',
+    async (request): Promise<DeleteCollectionItemResponse> => {
+      const userId = await authenticate(request);
+      const result = await db.query(`delete from collection_items where user_id = $1 and card_id = $2`, [
+        userId,
+        request.params.cardId,
+      ]);
+      return { removed: result.rowCount ?? 0 };
+    },
+  );
+
   app.get('/v1/me/profile', async (request): Promise<ProfileResponse> => {
     const userId = await authenticate(request);
     // Eine einzige Abfrage über die Karten des Nutzers. Zusammengezählt wird im
     // Server: Das spart gegenüber drei getrennten Auswertungen zwei Tabellendurchläufe.
     const owned = await db.query<{
       card_id: string;
+      printing: string;
       quantity: number;
       rarity: string | null;
       set_id: string;
@@ -140,7 +155,7 @@ export function registerCollectionRoutes(app: FastifyInstance, db: Db, authentic
       market_price_usd: number | null;
       market_price_eur: number | null;
     }>(
-      `select ci.card_id, ci.quantity, c.rarity, c.set_id, s.card_count,
+      `select ci.card_id, ci.printing, ci.quantity, c.rarity, c.set_id, s.card_count,
               coalesce(s.release_date < $2::date, false) as vintage,
               c.market_price_usd, c.market_price_eur
        from collection_items ci
@@ -150,16 +165,17 @@ export function registerCollectionRoutes(app: FastifyInstance, db: Db, authentic
       [userId, VINTAGE_BEFORE],
     );
 
-    const cards = new Map<string, { rarity: string | null; vintage: boolean; printings: number }>();
+    // Varianten zählen nach Namen. Ein Eintrag ohne Variante ('') zählt nicht als eigene Variante.
+    const cards = new Map<string, { rarity: string | null; vintage: boolean; printings: Set<string> }>();
     const sets = new Map<string, { cardCount: number; cards: Set<string> }>();
     let totalCards = 0;
     let valueUsd = 0;
     let valueEur = 0;
     let pricedEur = 0;
     for (const row of owned.rows) {
-      const card = cards.get(row.card_id);
-      if (card) card.printings += 1;
-      else cards.set(row.card_id, { rarity: row.rarity, vintage: row.vintage, printings: 1 });
+      const card = cards.get(row.card_id) ?? { rarity: row.rarity, vintage: row.vintage, printings: new Set<string>() };
+      if (row.printing) card.printings.add(row.printing);
+      cards.set(row.card_id, card);
 
       const set = sets.get(row.set_id) ?? { cardCount: row.card_count, cards: new Set<string>() };
       set.cards.add(row.card_id);
@@ -176,7 +192,7 @@ export function registerCollectionRoutes(app: FastifyInstance, db: Db, authentic
     let xp = 0;
     let vintageXp = 0;
     for (const card of cards.values()) {
-      const points = cardXp(card.rarity, card.printings);
+      const points = cardXp(card.rarity, Math.max(1, card.printings.size));
       xp += points;
       if (card.vintage) vintageXp += points;
     }

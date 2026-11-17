@@ -67,7 +67,7 @@ export function getToken(): Promise<string> {
 /** Abruf mit Anmeldung. Ist das Token dem Server unbekannt, wird einmal ein neues Konto angelegt. */
 export async function authedRequest<T>(
   path: string,
-  options: { method?: 'GET' | 'PUT' | 'POST'; body?: unknown; signal?: AbortSignal } = {},
+  options: { method?: 'GET' | 'PUT' | 'POST' | 'DELETE'; body?: unknown; signal?: AbortSignal } = {},
 ): Promise<T> {
   try {
     return await request<T>(path, { ...options, token: await getToken() });

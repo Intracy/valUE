@@ -14,6 +14,7 @@ const app = await buildApp({
   rateLimitPerMinute: config.rateLimitPerMinute,
   trustProxy: config.trustProxy,
   logger: config.env !== 'test',
+  scan: { ocrWorkers: config.scan.ocrWorkers, ratePerMinute: config.scan.ratePerMinute },
 });
 
 // Beim Beenden laufende Anfragen fertig bedienen, dann die Datenbank schließen.

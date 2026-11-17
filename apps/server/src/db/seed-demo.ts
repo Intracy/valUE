@@ -1,6 +1,7 @@
 import { loadConfig } from '../config.js';
 import type { SourceCard, SourceSet } from '../sources/price-source.js';
 import { bumpCatalogVersion, refreshCardCounts, snapshotPrices, upsertCards, upsertSets } from '../sync/store.js';
+import { computeMissingFingerprints } from '../scan/fingerprint-job.js';
 import { demoCardSvg, demoNames } from './demo-art.js';
 import { migrate } from './migrate.js';
 import { createPool, type Db } from './pool.js';
@@ -70,6 +71,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     await migrate(db);
     await seedDemo(db);
+    await computeMissingFingerprints(db);
     console.log(`Demo-Daten geladen: ${demoSets.length} Sets, ${demoCards().length} Karten.`);
   } finally {
     await db.end();

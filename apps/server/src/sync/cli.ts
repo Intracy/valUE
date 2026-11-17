@@ -3,6 +3,7 @@ import { migrate } from '../db/migrate.js';
 import { createPool } from '../db/pool.js';
 import { PokemonPriceTrackerSource } from '../sources/pokemon-price-tracker.js';
 import { exportPrintingRows, openExport } from '../sources/ppt-export.js';
+import { computeMissingFingerprints } from '../scan/fingerprint-job.js';
 import { runApiSync, runExportSync } from './sync.js';
 
 /**
@@ -45,6 +46,11 @@ try {
     `Status ${result.status}: ${result.setsSynced} Sets, ${result.cardsSynced} Karten, ${result.creditsUsed} Credits.`,
   );
   for (const note of result.notes) log(`Hinweis: ${note}`);
+  if (result.cardsSynced > 0) {
+    // Fingerabdrücke für den Scanner. Lädt die Kartenbilder; nur neue oder geänderte.
+    const fingerprints = await computeMissingFingerprints(db, { log });
+    log(`Scanner: ${fingerprints.computed} Fingerabdrücke neu, ${fingerprints.failed} Bilder nicht verwertbar.`);
+  }
   process.exitCode = result.status === 'failed' ? 1 : 0;
 } finally {
   await db.end();

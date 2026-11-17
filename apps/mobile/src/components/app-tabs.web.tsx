@@ -12,7 +12,7 @@ import { AppText } from './app-text';
 const WIDE = 700;
 const Narrow = createContext(false);
 
-type WebSymbol = 'collections' | 'style' | 'search' | 'person';
+type WebSymbol = 'collections' | 'style' | 'search' | 'person' | 'photo_camera';
 
 /**
  * Navigation im Browser. Auf Handybreite eine Leiste unten mit Symbol und
@@ -44,6 +44,9 @@ export default function AppTabs() {
             </TabTrigger>
             <TabTrigger name="sets" href="/sets" asChild>
               <TabButton symbol="style">Sets</TabButton>
+            </TabTrigger>
+            <TabTrigger name="scan" href="/scan" asChild>
+              <ScanButton>Scannen</ScanButton>
             </TabTrigger>
             <TabTrigger name="suche" href="/suche" asChild>
               <TabButton symbol="search">Suche</TabButton>
@@ -104,7 +107,64 @@ function TabButton({ children, isFocused, symbol, ...props }: TabTriggerSlotProp
   );
 }
 
+/** Scanner in der Mitte: runder, farbiger Knopf, der über die Leiste hinausragt. */
+function ScanButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+  const colors = usePalette();
+  const narrow = useContext(Narrow);
+  if (!narrow) {
+    return (
+      <Pressable
+        {...(props as PressableProps)}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: Boolean(isFocused) }}
+        style={({ pressed }) => [styles.scanWide, { backgroundColor: colors.tint }, pressed && { opacity: 0.8 }]}>
+        <SymbolView name={{ web: 'photo_camera' }} size={18} tintColor="#FFFFFF" />
+        <AppText variant="subheadline" style={styles.scanWideLabel}>
+          {children}
+        </AppText>
+      </Pressable>
+    );
+  }
+  return (
+    <Pressable
+      {...(props as PressableProps)}
+      accessibilityRole="tab"
+      accessibilityLabel="Scannen"
+      accessibilityState={{ selected: Boolean(isFocused) }}
+      style={({ pressed }) => [styles.buttonNarrow, pressed && { opacity: 0.8 }]}>
+      <View style={[styles.scanCircle, { backgroundColor: colors.tint, borderColor: colors.background }]}>
+        <SymbolView name={{ web: 'photo_camera' }} size={28} tintColor="#FFFFFF" />
+      </View>
+      <AppText variant="caption" style={{ color: colors.tint, fontWeight: '600' }}>
+        {children}
+      </AppText>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  scanCircle: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 4,
+    marginTop: -26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  scanWide: {
+    minHeight: MIN_TOUCH,
+    paddingHorizontal: space.md,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  scanWideLabel: { color: '#FFFFFF', fontWeight: '600' },
   root: { flex: 1 },
   slot: { flex: 1 },
   bar: { alignItems: 'center' },

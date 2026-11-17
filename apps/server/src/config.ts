@@ -30,6 +30,10 @@ const schema = z.object({
   SYNC_LANGUAGE: z.enum(['english', 'japanese']).default('english'),
   /** Obergrenze je Lauf. Der Free-Tarif hat 100 Credits am Tag. */
   SYNC_MAX_CREDITS_PER_RUN: z.coerce.number().int().nonnegative().default(90),
+  /** Parallele Texterkennungen je Server-Prozess. Jede belegt einen Kern, solange sie läuft. */
+  SCAN_OCR_WORKERS: z.coerce.number().int().positive().default(2),
+  /** Scans je Minute und Absender. Scannen ist der teuerste Aufruf. */
+  SCAN_RATE_PER_MINUTE: z.coerce.number().int().positive().default(30),
   /** Set-Liste höchstens so oft neu laden (kostet 1 Credit). */
   SYNC_SETS_REFRESH_HOURS: z.coerce.number().int().positive().default(168),
 });
@@ -54,6 +58,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     corsOrigins: csv(value.CORS_ORIGINS),
     rateLimitPerMinute: value.RATE_LIMIT_PER_MINUTE,
     trustProxy: value.TRUST_PROXY,
+    scan: {
+      ocrWorkers: value.SCAN_OCR_WORKERS,
+      ratePerMinute: value.SCAN_RATE_PER_MINUTE,
+    },
     ppt: {
       apiKey: value.PPT_API_KEY,
       baseUrl: value.PPT_BASE_URL,
