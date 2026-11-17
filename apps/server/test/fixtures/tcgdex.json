@@ -2,90 +2,418 @@
   "_hinweis": "Echte Antworten von api.tcgdex.net/v2 (17.11.2026), gekürzt auf die Felder, die der Katalogabgleich liest.",
   "sets": {
     "en": [
-      { "id": "base1", "name": "Base Set", "logo": "https://assets.tcgdex.net/en/base/base1/logo", "cardCount": { "total": 2, "official": 102 } },
-      { "id": "swsh3", "name": "Darkness Ablaze", "logo": "https://assets.tcgdex.net/en/swsh/swsh3/logo", "cardCount": { "total": 1, "official": 189 } }
+      {
+        "id": "base1",
+        "name": "Base Set",
+        "logo": "https://assets.tcgdex.net/en/base/base1/logo",
+        "cardCount": {
+          "total": 2,
+          "official": 102
+        }
+      },
+      {
+        "id": "swsh3",
+        "name": "Darkness Ablaze",
+        "logo": "https://assets.tcgdex.net/en/swsh/swsh3/logo",
+        "cardCount": {
+          "total": 1,
+          "official": 189
+        }
+      },
+      {
+        "id": "A1",
+        "name": "Genetic Apex",
+        "cardCount": {
+          "total": 1,
+          "official": 226
+        }
+      }
     ],
     "de": [
-      { "id": "base1", "name": "Grundset", "cardCount": { "total": 2, "official": 102 } },
-      { "id": "swsh3", "name": "Flammende Finsternis", "logo": "https://assets.tcgdex.net/de/swsh/swsh3/logo", "cardCount": { "total": 1, "official": 189 } }
+      {
+        "id": "base1",
+        "name": "Grundset",
+        "cardCount": {
+          "total": 2,
+          "official": 102
+        }
+      },
+      {
+        "id": "swsh3",
+        "name": "Flammende Finsternis",
+        "logo": "https://assets.tcgdex.net/de/swsh/swsh3/logo",
+        "cardCount": {
+          "total": 1,
+          "official": 189
+        }
+      }
     ],
-    "ja": [{ "id": "SV1S", "name": "スカーレットex", "cardCount": { "total": 2, "official": 78 } }]
+    "ja": [
+      {
+        "id": "SV1S",
+        "name": "スカーレットex",
+        "cardCount": {
+          "total": 2,
+          "official": 78
+        }
+      }
+    ]
   },
   "set": {
     "en/base1": {
-      "cardCount": { "official": 102, "total": 102 },
+      "cardCount": {
+        "official": 102,
+        "total": 102
+      },
       "cards": [
-        { "id": "base1-4", "image": "https://assets.tcgdex.net/en/base/base1/4", "localId": "4", "name": "Charizard" },
-        { "id": "base1-58", "image": "https://assets.tcgdex.net/en/base/base1/58", "localId": "58", "name": "Pikachu" }
+        {
+          "id": "base1-4",
+          "image": "https://assets.tcgdex.net/en/base/base1/4",
+          "localId": "4",
+          "name": "Charizard"
+        },
+        {
+          "id": "base1-58",
+          "image": "https://assets.tcgdex.net/en/base/base1/58",
+          "localId": "58",
+          "name": "Pikachu"
+        }
       ],
-      "id": "base1", "logo": "https://assets.tcgdex.net/en/base/base1/logo", "name": "Base Set", "releaseDate": "1999-01-09",
-      "serie": { "id": "base", "name": "Base" }
+      "id": "base1",
+      "logo": "https://assets.tcgdex.net/en/base/base1/logo",
+      "name": "Base Set",
+      "releaseDate": "1999-01-09",
+      "serie": {
+        "id": "base",
+        "name": "Base"
+      }
     },
     "de/base1": {
-      "cardCount": { "official": 102, "total": 102 },
+      "cardCount": {
+        "official": 102,
+        "total": 102
+      },
       "cards": [
-        { "id": "base1-4", "localId": "4", "name": "Glurak" },
-        { "id": "base1-58", "localId": "58", "name": "Pikachu" }
+        {
+          "id": "base1-4",
+          "localId": "4",
+          "name": "Glurak"
+        },
+        {
+          "id": "base1-58",
+          "localId": "58",
+          "name": "Pikachu"
+        }
       ],
-      "id": "base1", "name": "Grundset", "releaseDate": "1999-01-09", "serie": { "id": "base", "name": "Grund" }
+      "id": "base1",
+      "name": "Grundset",
+      "releaseDate": "1999-01-09",
+      "serie": {
+        "id": "base",
+        "name": "Grund"
+      }
     },
     "en/swsh3": {
-      "cardCount": { "official": 189, "total": 201 },
-      "cards": [{ "id": "swsh3-136", "image": "https://assets.tcgdex.net/en/swsh/swsh3/136", "localId": "136", "name": "Furret" }],
-      "id": "swsh3", "logo": "https://assets.tcgdex.net/en/swsh/swsh3/logo", "name": "Darkness Ablaze", "releaseDate": "2020-08-14",
-      "serie": { "id": "swsh", "name": "Sword & Shield" }
+      "cardCount": {
+        "official": 189,
+        "total": 201
+      },
+      "cards": [
+        {
+          "id": "swsh3-136",
+          "image": "https://assets.tcgdex.net/en/swsh/swsh3/136",
+          "localId": "136",
+          "name": "Furret"
+        }
+      ],
+      "id": "swsh3",
+      "logo": "https://assets.tcgdex.net/en/swsh/swsh3/logo",
+      "name": "Darkness Ablaze",
+      "releaseDate": "2020-08-14",
+      "serie": {
+        "id": "swsh",
+        "name": "Sword & Shield"
+      }
     },
     "de/swsh3": {
-      "cardCount": { "official": 189, "total": 201 },
-      "cards": [{ "id": "swsh3-136", "image": "https://assets.tcgdex.net/de/swsh/swsh3/136", "localId": "136", "name": "Wiesenior" }],
-      "id": "swsh3", "logo": "https://assets.tcgdex.net/de/swsh/swsh3/logo", "name": "Flammende Finsternis", "releaseDate": "2020-08-14",
-      "serie": { "id": "swsh", "name": "Schwert & Schild" }
+      "cardCount": {
+        "official": 189,
+        "total": 201
+      },
+      "cards": [
+        {
+          "id": "swsh3-136",
+          "image": "https://assets.tcgdex.net/de/swsh/swsh3/136",
+          "localId": "136",
+          "name": "Wiesenior"
+        }
+      ],
+      "id": "swsh3",
+      "logo": "https://assets.tcgdex.net/de/swsh/swsh3/logo",
+      "name": "Flammende Finsternis",
+      "releaseDate": "2020-08-14",
+      "serie": {
+        "id": "swsh",
+        "name": "Schwert & Schild"
+      }
     },
     "ja/SV1S": {
-      "cardCount": { "official": 78, "total": 108 },
+      "cardCount": {
+        "official": 78,
+        "total": 108
+      },
       "cards": [
-        { "id": "SV1S-001", "image": "https://assets.tcgdex.net/ja/SV/SV1S/001", "localId": "001", "name": "サボネア" },
-        { "id": "SV1S-002", "image": "https://assets.tcgdex.net/ja/SV/SV1S/002", "localId": "002", "name": "ノクタス" }
+        {
+          "id": "SV1S-001",
+          "image": "https://assets.tcgdex.net/ja/SV/SV1S/001",
+          "localId": "001",
+          "name": "サボネア"
+        },
+        {
+          "id": "SV1S-002",
+          "image": "https://assets.tcgdex.net/ja/SV/SV1S/002",
+          "localId": "002",
+          "name": "ノクタス"
+        }
       ],
-      "id": "SV1S", "name": "スカーレットex", "releaseDate": "2023-01-20",
-      "serie": { "id": "SV", "name": "ポケモンカードゲーム スカーレット&バイオレット" }
+      "id": "SV1S",
+      "name": "スカーレットex",
+      "releaseDate": "2023-01-20",
+      "serie": {
+        "id": "SV",
+        "name": "ポケモンカードゲーム スカーレット&バイオレット"
+      }
+    },
+    "en/A1": {
+      "cardCount": {
+        "official": 226,
+        "total": 286
+      },
+      "cards": [
+        {
+          "id": "A1-003",
+          "image": "https://assets.tcgdex.net/en/tcgp/A1/003",
+          "localId": "003",
+          "name": "Venusaur"
+        }
+      ],
+      "id": "A1",
+      "name": "Genetic Apex",
+      "releaseDate": "2024-10-30",
+      "serie": {
+        "id": "tcgp",
+        "name": "Pokémon TCG Pocket"
+      }
     }
   },
   "card": {
     "en/base1-4": {
-      "category": "Pokemon", "id": "base1-4", "image": "https://assets.tcgdex.net/en/base/base1/4", "localId": "4", "name": "Charizard", "rarity": "Rare",
-      "set": { "cardCount": { "official": 102, "total": 102 }, "id": "base1", "name": "Base Set" },
-      "variants": { "firstEdition": true, "holo": true, "normal": false, "reverse": false, "wPromo": false }, "types": ["Fire"]
+      "category": "Pokemon",
+      "id": "base1-4",
+      "image": "https://assets.tcgdex.net/en/base/base1/4",
+      "localId": "4",
+      "name": "Charizard",
+      "rarity": "Rare",
+      "set": {
+        "cardCount": {
+          "official": 102,
+          "total": 102
+        },
+        "id": "base1",
+        "name": "Base Set"
+      },
+      "variants": {
+        "firstEdition": true,
+        "holo": true,
+        "normal": false,
+        "reverse": false,
+        "wPromo": false
+      },
+      "types": [
+        "Fire"
+      ],
+      "hp": 120,
+      "illustrator": "Mitsuhiro Arita",
+      "abilities": [
+        {
+          "type": "Pokemon Power",
+          "name": "Energy Burn"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Fire Spin",
+          "damage": 100
+        }
+      ]
     },
     "en/base1-58": {
-      "category": "Pokemon", "id": "base1-58", "image": "https://assets.tcgdex.net/en/base/base1/58", "localId": "58", "name": "Pikachu", "rarity": "Common",
-      "set": { "cardCount": { "official": 102, "total": 102 }, "id": "base1", "name": "Base Set" },
-      "variants": { "firstEdition": true, "holo": false, "normal": true, "reverse": false, "wPromo": false }, "types": ["Lightning"]
+      "category": "Pokemon",
+      "id": "base1-58",
+      "image": "https://assets.tcgdex.net/en/base/base1/58",
+      "localId": "58",
+      "name": "Pikachu",
+      "rarity": "Common",
+      "set": {
+        "cardCount": {
+          "official": 102,
+          "total": 102
+        },
+        "id": "base1",
+        "name": "Base Set"
+      },
+      "variants": {
+        "firstEdition": true,
+        "holo": false,
+        "normal": true,
+        "reverse": false,
+        "wPromo": false
+      },
+      "types": [
+        "Lightning"
+      ]
     },
     "de/base1-4": {
-      "category": "Pokémon", "id": "base1-4", "localId": "4", "name": "Glurak", "rarity": "Selten",
-      "set": { "cardCount": { "official": 102, "total": 102 }, "id": "base1", "name": "Grundset" },
-      "variants": { "firstEdition": true, "holo": true, "normal": false, "reverse": false, "wPromo": false }, "types": ["Feuer"]
+      "category": "Pokémon",
+      "id": "base1-4",
+      "localId": "4",
+      "name": "Glurak",
+      "rarity": "Selten",
+      "set": {
+        "cardCount": {
+          "official": 102,
+          "total": 102
+        },
+        "id": "base1",
+        "name": "Grundset"
+      },
+      "variants": {
+        "firstEdition": true,
+        "holo": true,
+        "normal": false,
+        "reverse": false,
+        "wPromo": false
+      },
+      "types": [
+        "Feuer"
+      ],
+      "hp": 120,
+      "illustrator": "Mitsuhiro Arita",
+      "abilities": [
+        {
+          "type": "Pokemon Power",
+          "name": "Energie verbrennen"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Feuerwirbel",
+          "damage": 100
+        }
+      ]
     },
     "de/base1-58": {
-      "category": "Pokémon", "id": "base1-58", "localId": "58", "name": "Pikachu", "rarity": "Häufig",
-      "set": { "cardCount": { "official": 102, "total": 102 }, "id": "base1", "name": "Grundset" },
-      "variants": { "firstEdition": true, "holo": false, "normal": true, "reverse": false, "wPromo": false }, "types": ["Elektro"]
+      "category": "Pokémon",
+      "id": "base1-58",
+      "localId": "58",
+      "name": "Pikachu",
+      "rarity": "Häufig",
+      "set": {
+        "cardCount": {
+          "official": 102,
+          "total": 102
+        },
+        "id": "base1",
+        "name": "Grundset"
+      },
+      "variants": {
+        "firstEdition": true,
+        "holo": false,
+        "normal": true,
+        "reverse": false,
+        "wPromo": false
+      },
+      "types": [
+        "Elektro"
+      ]
     },
     "en/swsh3-136": {
-      "category": "Pokemon", "id": "swsh3-136", "image": "https://assets.tcgdex.net/en/swsh/swsh3/136", "localId": "136", "name": "Furret", "rarity": "Uncommon",
-      "set": { "cardCount": { "official": 189, "total": 201 }, "id": "swsh3", "name": "Darkness Ablaze" },
-      "variants": { "firstEdition": false, "holo": false, "normal": true, "reverse": true, "wPromo": false }, "types": ["Colorless"]
+      "category": "Pokemon",
+      "id": "swsh3-136",
+      "image": "https://assets.tcgdex.net/en/swsh/swsh3/136",
+      "localId": "136",
+      "name": "Furret",
+      "rarity": "Uncommon",
+      "set": {
+        "cardCount": {
+          "official": 189,
+          "total": 201
+        },
+        "id": "swsh3",
+        "name": "Darkness Ablaze"
+      },
+      "variants": {
+        "firstEdition": false,
+        "holo": false,
+        "normal": true,
+        "reverse": true,
+        "wPromo": false
+      },
+      "types": [
+        "Colorless"
+      ]
     },
     "de/swsh3-136": {
-      "category": "Pokémon", "id": "swsh3-136", "image": "https://assets.tcgdex.net/de/swsh/swsh3/136", "localId": "136", "name": "Wiesenior", "rarity": "Ungewöhnlich",
-      "set": { "cardCount": { "official": 189, "total": 201 }, "id": "swsh3", "name": "Flammende Finsternis" },
-      "variants": { "firstEdition": false, "holo": false, "normal": true, "reverse": true, "wPromo": false }, "types": ["Farblos"]
+      "category": "Pokémon",
+      "id": "swsh3-136",
+      "image": "https://assets.tcgdex.net/de/swsh/swsh3/136",
+      "localId": "136",
+      "name": "Wiesenior",
+      "rarity": "Ungewöhnlich",
+      "set": {
+        "cardCount": {
+          "official": 189,
+          "total": 201
+        },
+        "id": "swsh3",
+        "name": "Flammende Finsternis"
+      },
+      "variants": {
+        "firstEdition": false,
+        "holo": false,
+        "normal": true,
+        "reverse": true,
+        "wPromo": false
+      },
+      "types": [
+        "Farblos"
+      ]
     },
     "ja/SV1S-001": {
-      "category": "Pokemon", "id": "SV1S-001", "image": "https://assets.tcgdex.net/ja/SV/SV1S/001", "localId": "001", "name": "サボネア", "rarity": "Common",
-      "set": { "cardCount": { "official": 78, "total": 108 }, "id": "SV1S", "name": "スカーレットex" },
-      "variants": { "firstEdition": false, "holo": false, "normal": true, "reverse": false, "wPromo": false }, "types": ["Grass"]
+      "category": "Pokemon",
+      "id": "SV1S-001",
+      "image": "https://assets.tcgdex.net/ja/SV/SV1S/001",
+      "localId": "001",
+      "name": "サボネア",
+      "rarity": "Common",
+      "set": {
+        "cardCount": {
+          "official": 78,
+          "total": 108
+        },
+        "id": "SV1S",
+        "name": "スカーレットex"
+      },
+      "variants": {
+        "firstEdition": false,
+        "holo": false,
+        "normal": true,
+        "reverse": false,
+        "wPromo": false
+      },
+      "types": [
+        "Grass"
+      ]
     }
   }
 }

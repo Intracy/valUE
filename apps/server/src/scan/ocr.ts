@@ -158,6 +158,46 @@ export function parseCardName(text: string): string | null {
   return runs.join(' ').slice(0, 120);
 }
 
+/** Lebenspunkte aus der Namenszeile: "100 HP", "HP 340", "KP 110", "PV 60". */
+export function parseHp(text: string): number | null {
+  const match = /(\d{2,3})\s*(?:HP|KP|PV|PS)\b/i.exec(text) ?? /\b(?:HP|KP|PV|PS)\s*(\d{2,3})/i.exec(text);
+  const hp = match ? Number(match[1]) : NaN;
+  return hp >= 10 && hp <= 400 && hp % 10 === 0 ? hp : null;
+}
+
+export interface LowerFacts {
+  /** Nummer mit Gesamtzahl, etwa 18/130. Mehrere, wenn mehrere Stellen danach aussehen. */
+  numbers: { number: number; total: number }[];
+  /** Gesamtzahlen hinter einem Schrägstrich, auch wenn die Nummer davor unleserlich ist ("…/130"). */
+  totals: number[];
+  /** Jüngstes Jahr im Copyright ("© 1999-2000 Wizards" → 2000). */
+  year: number | null;
+  /** Der gelesene Text, klein geschrieben, für den Vergleich mit Attacken und Illustrator. */
+  text: string;
+}
+
+/**
+ * Merkmale aus dem Volltext der unteren Kartenhälfte. Dort stehen Attacken,
+ * Illustrator, Copyright mit Jahr und die Nummer. Bei Neuauflagen mit gleichem
+ * Bild (Bisaflor aus Base Set 1999, Base Set 2, Legendary Collection) sind
+ * Nummer, Set-Größe und Jahr die einzigen Unterschiede.
+ */
+export function parseLowerText(raw: string): LowerFacts {
+  const text = raw.replace(/[|]/g, ' ').replace(/\s+/g, ' ').trim();
+  const numbers: { number: number; total: number }[] = [];
+  const totals = new Set<number>();
+  for (const match of raw.matchAll(/(\d{1,3})[ \t]*[/\\][ \t]*(\d{2,3})(?!\d)/g)) {
+    const parsed = parseCardNumber(`${match[1]}/${match[2]}`);
+    if (parsed?.total) {
+      numbers.push({ number: parsed.number, total: parsed.total });
+      totals.add(parsed.total);
+    }
+  }
+  for (const match of raw.matchAll(/[/\\](\d{2,3})(?!\d)/g)) totals.add(Number(match[1]));
+  const years = [...raw.matchAll(/(?<!\d)(199\d|20[0-4]\d)(?!\d)/g)].map((match) => Number(match[1]));
+  return { numbers, totals: [...totals], year: years.length > 0 ? Math.max(...years) : null, text: text.toLowerCase() };
+}
+
 /** Japanische Schriftzeichen: Hiragana, Katakana (mit Langvokal ー), Kanji. */
 const JAPANESE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff66-\uff9f]+/gu;
 

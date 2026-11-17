@@ -45,6 +45,10 @@ export interface TcgdexCard extends TcgdexCardBrief {
   category?: string;
   rarity?: string;
   types?: string[];
+  hp?: number | string;
+  illustrator?: string;
+  attacks?: { name?: string; damage?: number | string }[];
+  abilities?: { name?: string }[];
   set: { id: string; name?: string; cardCount?: { total?: number; official?: number } };
   variants?: { normal?: boolean; holo?: boolean; reverse?: boolean; firstEdition?: boolean; wPromo?: boolean };
 }
@@ -147,7 +151,21 @@ export function mapTcgdexCard(language: CatalogLanguage, card: TcgdexCard, setOf
     priceUpdatedAt: null,
     printings: mapVariants(card.variants).map((printing) => ({ printing, marketPriceUsd: null, lowPriceUsd: null })),
     element: normalizeElement(card.types ?? []),
+    hp: Number.isFinite(Number(card.hp)) && Number(card.hp) > 0 ? Number(card.hp) : null,
+    illustrator: card.illustrator?.trim() || null,
+    cardText: cardText(card),
   };
 }
 
+/** Namen der Attacken und Fähigkeiten, durch " | " getrennt. Der Scanner sucht sie im gelesenen Kartentext. */
+export function cardText(card: Pick<TcgdexCard, 'attacks' | 'abilities'>): string | null {
+  const names = [...(card.abilities ?? []), ...(card.attacks ?? [])]
+    .map((entry) => entry.name?.trim())
+    .filter((name): name is string => !!name && name.length >= 3);
+  return names.length > 0 ? names.join(' | ') : null;
+}
+
 export const setOfficialCount = (set: TcgdexSet) => officialCount(set.cardCount);
+
+/** TCG Pocket ist ein reines Digitalspiel; seine Karten gibt es nicht gedruckt. */
+export const isDigitalOnly = (set: Pick<TcgdexSet, 'serie'>) => set.serie?.id === 'tcgp';
