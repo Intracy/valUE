@@ -196,6 +196,7 @@ apps/
 packages/
   api-types/         Vertrag zwischen App und Server
 docs/                Architektur, Gestaltung, Screenshots
+graphify/            Wissensgraph des Repositorys zur Orientierung (siehe graphify/README.md)
 ```
 
 ## Fahrplan

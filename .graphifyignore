@@ -1,0 +1,5 @@
+# Was Graphify nicht einlesen soll
+graphify/
+graphify-out/
+docs/screenshots/
+CLAUDE.md
