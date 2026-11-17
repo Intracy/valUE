@@ -4,21 +4,21 @@
 - cluster-only mode — file stats not available
 
 ## Summary
-- 893 nodes · 2342 edges · 60 communities (37 shown, 23 thin omitted)
+- 940 nodes · 2392 edges · 64 communities (41 shown, 23 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 45 edges (avg confidence: 0.84)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `dea756c9`
+- Built from commit: `a7adae5d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - App-Bildschirme & Designsystem
-- Wechselkurs (EZB)
+- Wechselkurs & HTTP-Tests
 - Scan-Erkennung (Server)
 - Fingerabdrücke & Benchmark
-- Währung & Darstellung (App)
+- Darstellung & Root-Layout
 - Expo-App-Konfiguration
 - Pokemon-Price-Tracker-Anbindung
 - CI-Pipeline
@@ -34,7 +34,7 @@
 - App-Dev-Abhängigkeiten
 - API-Vertrag Paket
 - Tab-Navigation
-- Pokemon-Price-Tracker-Client
+- Abgleich-Tests & Population
 - Katalog-Routen & Markt
 - Produktvision & Features
 - API-Types-TS-Config
@@ -44,7 +44,7 @@
 - App-Skripte
 - Lasttest
 - Visueller Index & Scan-Routen
-- Apple-Richtlinien & Tab-Leiste
+- Docker-Compose (NAS)
 - Paket: expo-font
 - Paket: expo-device
 - Scanner & Diagramme (App)
@@ -52,10 +52,10 @@
 - Paket: expo-image-manipulator
 - Paket: expo-image-picker
 - Paket: expo-linking
-- Paket: expo-system-ui
+- Fingerabdrücke & Datenbank
 - Paket: expo-splash-screen
 - Achievements
-- Konfiguration, Datenbank & Last-Daten
+- Konfiguration & Last-Daten
 - Paket: @expo/ui
 - Paket: expo-web-browser
 - Paket: react-native-gesture-handler
@@ -63,16 +63,20 @@
 - Paket: react-native-safe-area-context
 - Scan-Routen & Fehler
 - Paket: react-native-worklets
+- Texterkennung (OCR)
 - CSS-Typen
+- NAS-Update & Tailscale
 - Paket: expo
 - Demo-Motive
 - PgBouncer (offen)
 - Ungetestet auf Geräten
 - Abgleich & Speichern
 - Paket: expo-glass-effect
+- Portfolio & Favoriten (Server)
 - Paket: react-dom
-- Paket: expo-camera
-- Paket: react-native-web
+- Paket: react-native-reanimated
+- Paket: react-native-svg
+- Paket: @value/api-types
 
 ## God Nodes (most connected - your core abstractions)
 1. `usePalette()` - 54 edges
@@ -91,12 +95,12 @@
   docs/ARCHITEKTUR.md → apps/server/src/sources/price-source.ts
 - `Dollar ↔ Euro per Tipp (EZB-Kurs)` --implements--> `Price()`  [EXTRACTED]
   docs/DESIGN.md → apps/mobile/src/components/currency.tsx
-- `Darstellung Dunkel/Hell/System` --implements--> `AppearanceProvider()`  [EXTRACTED]
-  docs/DESIGN.md → apps/mobile/src/theme/appearance.tsx
 - `Grading-Preise, Population & Elemente aus der Quelle` --implements--> `runPopulationSync()`  [EXTRACTED]
   docs/ARCHITEKTUR.md → apps/server/src/sync/population.ts
 - `Ergebnisse: eindeutig / unsicher / nichts` --implements--> `ScanOutcome`  [INFERRED]
   docs/SCANNER.md → apps/server/src/scan/identify.ts
+- `Credit-Budget je Lauf` --references--> `CreditUsage`  [INFERRED]
+  docs/ARCHITEKTUR.md → apps/server/src/sources/price-source.ts
 
 ## Import Cycles
 - None detected.
@@ -106,27 +110,27 @@
 - **Skalierungsentscheidungen** — arch_stateless_api, arch_etag_cdn, arch_partition_collection, arch_partition_price_history, arch_batch_unnest, arch_server_only_provider [EXTRACTED 1.00]
 - **Scan-Erkennungspipeline** — scan_fingerprint, scan_ocr_tesseract, scan_signal_weighting, apps_server_src_scan_identify, apps_server_src_scan_ocr, apps_server_src_scan_image [EXTRACTED 1.00]
 
-## Communities (60 total, 23 thin omitted)
+## Communities (64 total, 23 thin omitted)
 
 ### Community 0 - "App-Bildschirme & Designsystem"
-Cohesion: 0.06
-Nodes (130): useCollectionProgress(), useFavorites(), useOwnedInSet(), usePortfolio(), useProfile(), useRemoveCard(), useSetQuantity(), useToggleFavorite() (+122 more)
+Cohesion: 0.05
+Nodes (133): useFavorites(), useOwnedInSet(), useProfile(), useSetQuantity(), GradeBlock(), KarteScreen(), Mode, StepButton() (+125 more)
 
-### Community 1 - "Wechselkurs (EZB)"
-Cohesion: 0.28
-Nodes (7): createExchangeRates(), ECB_DAILY_URL, ExchangeRates, parseEcbUsdRate(), AppOptions, Dollar ↔ Euro per Tipp (EZB-Kurs), ExchangeRateResponse
+### Community 1 - "Wechselkurs & HTTP-Tests"
+Cohesion: 0.19
+Nodes (13): migrate(), createPool(), createExchangeRates(), ECB_DAILY_URL, parseEcbUsdRate(), config, db, setup() (+5 more)
 
 ### Community 2 - "Scan-Erkennung (Server)"
-Cohesion: 0.11
-Nodes (22): CandidateFacts, clamp(), decide(), Identification, identifyCard(), scoreCandidate(), ScoredCandidate, SCORING (+14 more)
+Cohesion: 0.23
+Nodes (13): CandidateFacts, clamp(), decide(), Identification, identifyCard(), scoreCandidate(), ScoredCandidate, SCORING (+5 more)
 
 ### Community 3 - "Fingerabdrücke & Benchmark"
-Cohesion: 0.16
-Nodes (17): computeMissingFingerprints(), fingerprint(), FINGERPRINT_DIM, loadImage(), normalize(), quantize(), db, difficulty (+9 more)
+Cohesion: 0.15
+Nodes (14): sharp@^0.35.5, fingerprint(), FINGERPRINT_DIM, loadImage(), normalize(), clipToCanvas(), PhotoOptions, rng() (+6 more)
 
-### Community 4 - "Währung & Darstellung (App)"
-Cohesion: 0.11
-Nodes (25): queryClient, useExchangeRate(), RootLayout(), Themed(), AppTextProps, Props, CurrencyContext, CurrencyProvider() (+17 more)
+### Community 4 - "Darstellung & Root-Layout"
+Cohesion: 0.08
+Nodes (25): queryClient, RootLayout(), Themed(), TabsLayout(), AppTabs(), CurrencyProvider(), load(), save() (+17 more)
 
 ### Community 5 - "Expo-App-Konfiguration"
 Cohesion: 0.08
@@ -134,27 +138,27 @@ Nodes (25): backgroundColor, backgroundImage, foregroundImage, monochromeImage, 
 
 ### Community 6 - "Pokemon-Price-Tracker-Anbindung"
 Cohesion: 0.07
-Nodes (46): ALIASES, ELEMENTS, normalizeElement(), asIsoDate(), asIsoTimestamp(), asNumber(), asText(), FetchLike (+38 more)
+Nodes (44): normalizeElement(), asIsoDate(), asIsoTimestamp(), asNumber(), asText(), FetchLike, GRADE_PRICE_KEYS, GRADERS (+36 more)
 
 ### Community 7 - "CI-Pipeline"
 Cohesion: 0.08
 Nodes (25): runs-on, services, steps, POSTGRES_DB, POSTGRES_PASSWORD, POSTGRES_USER, TEST_DATABASE_URL, jobs (+17 more)
 
 ### Community 8 - "Karten-Typen im Vertrag"
-Cohesion: 0.16
-Nodes (17): Props, Props, RANGE_DAYS, CardPrinting, CardSummary, Currency, FavoriteCard, FavoriteResponse (+9 more)
+Cohesion: 0.15
+Nodes (15): Props, Props, CardPrinting, CardSummary, CollectionItem, DeleteCollectionItemResponse, ExchangeRateResponse, FavoriteCard (+7 more)
 
 ### Community 9 - "Docker Compose"
 Cohesion: 0.12
 Nodes (16): environment, healthcheck, image, ports, volumes, POSTGRES_DB, POSTGRES_PASSWORD, POSTGRES_USER (+8 more)
 
 ### Community 10 - "App-Abhängigkeiten"
-Cohesion: 0.13
-Nodes (15): dependencies, expo-image@~58.0.18, expo-router@~58.0.31, expo-secure-store@~58.0.3, expo-symbols@~58.0.5, react@19.3.0, react-native@0.88.1, react-native-reanimated@4.7.1 (+7 more)
+Cohesion: 0.12
+Nodes (16): dependencies, expo-camera@~58.0.14, expo-constants@~58.0.16, expo-image@~58.0.18, expo-router@~58.0.31, expo-secure-store@~58.0.3, expo-status-bar@~58.0.5, expo-symbols@~58.0.5 (+8 more)
 
 ### Community 11 - "Server-Abhängigkeiten"
-Cohesion: 0.11
-Nodes (24): dependencies, fastify@^5.0.0, @fastify/compress@^8.0.0, @fastify/cors@^11.0.0, @fastify/rate-limit@^10.0.0, pg@^8.13.0, sharp@^0.35.5, tesseract.js@^7.0.0 (+16 more)
+Cohesion: 0.12
+Nodes (22): dependencies, fastify@^5.0.0, @fastify/compress@^8.0.0, @fastify/cors@^11.0.0, @fastify/rate-limit@^10.0.0, pg@^8.13.0, tesseract.js@^7.0.0, @tesseract.js-data/eng@^1.0.0 (+14 more)
 
 ### Community 12 - "Server-TypeScript-Config"
 Cohesion: 0.12
@@ -165,20 +169,20 @@ Cohesion: 0.13
 Nodes (14): engines, node, name, private, scripts, db:migrate, db:up, dev:app (+6 more)
 
 ### Community 14 - "Server-Dev-Abhängigkeiten"
-Cohesion: 0.20
-Nodes (10): devDependencies, tsx@^4.19.0, @types/node@^22.0.0, @types/pg@^8.11.0, typescript@~6.0.3, vitest@^3.0.0, typescript, tsx (+2 more)
+Cohesion: 0.15
+Nodes (12): devDependencies, autocannon@^8.0.0, tsx@^4.19.0, @types/node@^22.0.0, @types/pg@^8.11.0, typescript@~6.0.3, vitest@^3.0.0, typescript (+4 more)
 
 ### Community 15 - "Server-Skripte"
 Cohesion: 0.14
 Nodes (14): scripts, build, dev, fingerprints, loadtest, migrate, ppt:probe, scan:benchmark (+6 more)
 
 ### Community 16 - "Sammlung, Score & Achievements"
-Cohesion: 0.16
-Nodes (17): rankForLevel(), cardXp(), RARITY_TIERS, rarityTier(), scoreTrack(), VINTAGE_BEFORE, XP_BY_TIER, registerCollectionRoutes() (+9 more)
+Cohesion: 0.22
+Nodes (14): evaluateAchievements(), rankForLevel(), isElement(), cardXp(), RARITY_TIERS, rarityTier(), scoreTrack(), VINTAGE_BEFORE (+6 more)
 
 ### Community 17 - "App-Dev-Abhängigkeiten"
 Cohesion: 0.16
-Nodes (13): expo-constants@~58.0.16, expo-status-bar@~58.0.5, devDependencies, @types/react@~19.3.0, typescript@~6.0.3, typescript, main, name (+5 more)
+Nodes (13): expo-system-ui@~58.0.7, react-native-web@~0.21.4, devDependencies, @types/react@~19.3.0, typescript@~6.0.3, typescript, main, name (+5 more)
 
 ### Community 18 - "API-Vertrag Paket"
 Cohesion: 0.18
@@ -188,13 +192,13 @@ Nodes (11): description, devDependencies, typescript@~6.0.3, typescript, main, n
 Cohesion: 0.33
 Nodes (5): MarktLayout(), PortfolioLayout(), ProfilLayout(), SammlungLayout(), TabStack()
 
-### Community 20 - "Pokemon-Price-Tracker-Client"
-Cohesion: 0.13
-Nodes (7): SourceError, resetData(), db, db, options, sets, vitest
+### Community 20 - "Abgleich-Tests & Population"
+Cohesion: 0.16
+Nodes (7): PriceSource, runPopulationSync(), upsertGrades(), db, listCardsInSet(), options, sets
 
 ### Community 21 - "Katalog-Routen & Markt"
-Cohesion: 0.16
-Nodes (16): Db, isElement(), CatalogVersion, byGradeDesc(), CARD_COLUMNS, CardRow, registerCatalogRoutes(), computeMovers() (+8 more)
+Cohesion: 0.14
+Nodes (18): CatalogVersion, byGradeDesc(), CardRow, registerCatalogRoutes(), computeMovers(), SetRow, toCard(), toPrice() (+10 more)
 
 ### Community 22 - "Produktvision & Features"
 Cohesion: 0.25
@@ -209,8 +213,8 @@ Cohesion: 0.25
 Nodes (7): compilerOptions, paths, strict, extends, include, @/assets/*, expo/tsconfig.base
 
 ### Community 25 - "API-Vertrag & App-Client"
-Cohesion: 0.11
-Nodes (22): API_URL, ApiRequestError, request(), RequestOptions, keys, SetQuantityInput, useCard(), useMovers() (+14 more)
+Cohesion: 0.09
+Nodes (31): API_URL, ApiRequestError, request(), RequestOptions, invalidateCollection(), keys, SetQuantityInput, useCard() (+23 more)
 
 ### Community 26 - "Build-Config"
 Cohesion: 0.25
@@ -221,60 +225,76 @@ Cohesion: 0.29
 Nodes (7): scripts, android, ios, lint, start, typecheck, web
 
 ### Community 28 - "Lasttest"
-Cohesion: 0.33
-Nodes (5): autocannon@^8.0.0, authed(), etag, token(), autocannon
+Cohesion: 0.40
+Nodes (4): authed(), etag, token(), autocannon
 
 ### Community 29 - "Visueller Index & Scan-Routen"
 Cohesion: 0.18
 Nodes (4): Authenticator, ScanDeps, OcrEngine, VisualIndex
 
-### Community 30 - "Apple-Richtlinien & Tab-Leiste"
-Cohesion: 0.14
-Nodes (11): TabsLayout(), AppTabs(), ScanOutcome, Darstellung Dunkel/Hell/System, Leere Zustände & Fehler erklären, Apple Human Interface Guidelines, Tippflächen ≥ 44×44 (MIN_TOUCH), Moodboard-Paletten Dark/Light & Dynamic Type (+3 more)
+### Community 30 - "Docker-Compose (NAS)"
+Cohesion: 0.06
+Nodes (35): build, depends_on, environment, restart, context, dockerfile, condition, environment (+27 more)
 
 ### Community 33 - "Scanner & Diagramme (App)"
-Cohesion: 0.10
-Nodes (36): invalidateCollection(), useConfirmScan(), useScanCard(), GuideOverlay(), messageFor(), Phase, RoundButton(), ScanScreen() (+28 more)
+Cohesion: 0.11
+Nodes (34): useConfirmScan(), useScanCard(), GuideOverlay(), messageFor(), Phase, RoundButton(), ScanScreen(), styles (+26 more)
+
+### Community 38 - "Fingerabdrücke & Datenbank"
+Cohesion: 0.13
+Nodes (14): here, migrationsDir, Db, DbClient, computeMissingFingerprints(), config, db, quantize() (+6 more)
 
 ### Community 40 - "Achievements"
-Cohesion: 0.24
-Nodes (8): ACHIEVEMENTS, CollectionStats, Definition, evaluateAchievements(), TIERS, Achievement, AchievementTier, Element
+Cohesion: 0.20
+Nodes (9): ACHIEVEMENTS, CollectionStats, Definition, TIERS, ALIASES, ELEMENTS, Achievement, AchievementTier (+1 more)
 
-### Community 41 - "Konfiguration, Datenbank & Last-Daten"
-Cohesion: 0.08
-Nodes (28): Config, csv(), loadConfig(), schema, config, db, here, migrate() (+20 more)
+### Community 41 - "Konfiguration & Last-Daten"
+Cohesion: 0.12
+Nodes (14): Config, csv(), loadConfig(), schema, config, db, cardsPerSet, config (+6 more)
 
 ### Community 47 - "Scan-Routen & Fehler"
+Cohesion: 0.18
+Nodes (17): withTransaction(), ExchangeRates, AppOptions, buildApp(), createAnonymousUser(), createAuthenticator(), hashToken(), createCatalogVersion() (+9 more)
+
+### Community 49 - "Texterkennung (OCR)"
 Cohesion: 0.14
-Nodes (21): withTransaction(), buildApp(), createAnonymousUser(), createAuthenticator(), hashToken(), createCatalogVersion(), badRequest(), HttpError (+13 more)
+Nodes (9): createOcrPool(), createPool(), DIGIT_FIXES, langPath, OcrResult, Pool, require, Texterkennung Tesseract (Name & Nummer) (+1 more)
+
+### Community 51 - "NAS-Update & Tailscale"
+Cohesion: 0.24
+Nodes (9): compose(), git_(), log(), PATH, update.sh script, Echte Daten statt Demo, Einrichten und aktualisieren, valUE auf der Synology (Docker) und über Tailscale (+1 more)
 
 ### Community 53 - "Demo-Motive"
 Cohesion: 0.38
 Nodes (6): demoCardSvg(), demoNames, DemoTheme, demoThemes, escapeXml(), random()
 
 ### Community 57 - "Abgleich & Speichern"
-Cohesion: 0.14
-Nodes (27): demoCards(), demoGrades(), demoSets, ELEMENT_CYCLE, RARITIES, seedDemo(), PriceSource, SourceCard (+19 more)
+Cohesion: 0.17
+Nodes (24): demoCards(), demoGrades(), demoSets, ELEMENT_CYCLE, RARITIES, seedDemo(), SourceCard, SourceGrade (+16 more)
+
+### Community 59 - "Portfolio & Favoriten (Server)"
+Cohesion: 0.20
+Nodes (9): CARD_COLUMNS, isRange(), RANGE_DAYS, round2(), Currency, FavoriteResponse, FavoritesResponse, PortfolioRange (+1 more)
 
 ## Knowledge Gaps
-- **14 isolated node(s):** `expo/tsconfig.base`, `./tsconfig.json`, `Scan-Benchmark mit simulierten Fotos`, `Texterkennung Tesseract (Name & Nummer)`, `Erkennung auf dem Gerät (Apple Vision / ML Kit)` (+9 more)
-  These have ≤1 connection - possible missing edges. (Counts symbols only; 297 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **15 isolated node(s):** `expo/tsconfig.base`, `./tsconfig.json`, `PATH`, `Scan-Benchmark mit simulierten Fotos`, `Achievements & Profil-Schmuck (geplant)` (+10 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 322 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **23 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `fastify` connect `Scan-Routen & Fehler` to `Scan-Erkennung (Server)`, `Karten-Typen im Vertrag`, `Server-Abhängigkeiten`, `Sammlung, Score & Achievements`, `Pokemon-Price-Tracker-Client`, `Katalog-Routen & Markt`?**
-  _High betweenness centrality (0.036) - this node is a cross-community bridge._
-- **What connects `expo/tsconfig.base`, `./tsconfig.json`, `Scan-Benchmark mit simulierten Fotos` to the rest of the system?**
-  _14 weakly-connected nodes found - possible missing edges._
+- **Why does `fastify` connect `Scan-Routen & Fehler` to `Wechselkurs & HTTP-Tests`, `Scan-Erkennung (Server)`, `Server-Abhängigkeiten`, `Sammlung, Score & Achievements`, `Katalog-Routen & Markt`, `Portfolio & Favoriten (Server)`?**
+  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **What connects `expo/tsconfig.base`, `./tsconfig.json`, `PATH` to the rest of the system?**
+  _15 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `App-Bildschirme & Designsystem` be split into smaller, more focused modules?**
-  _Cohesion score 0.056639944231439525 - nodes in this community are weakly interconnected._
-- **Why does `react-native` connect `App-Bildschirme & Designsystem` to `Scanner & Diagramme (App)`, `Währung & Darstellung (App)`, `App-Abhängigkeiten`, `App-Dev-Abhängigkeiten`, `API-Vertrag & App-Client`?**
-  _High betweenness centrality (0.035) - this node is a cross-community bridge._
-- **Should `Scan-Erkennung (Server)` be split into smaller, more focused modules?**
-  _Cohesion score 0.10574712643678161 - nodes in this community are weakly interconnected._
-- **Why does `Db` connect `Katalog-Routen & Markt` to `Wechselkurs (EZB)`, `Scan-Erkennung (Server)`, `Fingerabdrücke & Benchmark`, `Karten-Typen im Vertrag`, `Konfiguration, Datenbank & Last-Daten`, `Scan-Routen & Fehler`, `Sammlung, Score & Achievements`, `Abgleich & Speichern`, `Visueller Index & Scan-Routen`?**
-  _High betweenness centrality (0.027) - this node is a cross-community bridge._
-- **Should `Währung & Darstellung (App)` be split into smaller, more focused modules?**
-  _Cohesion score 0.11375661375661375 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.054875061244487995 - nodes in this community are weakly interconnected._
+- **Why does `react-native` connect `App-Bildschirme & Designsystem` to `Scanner & Diagramme (App)`, `Darstellung & Root-Layout`, `App-Abhängigkeiten`, `App-Dev-Abhängigkeiten`, `API-Vertrag & App-Client`?**
+  _High betweenness centrality (0.031) - this node is a cross-community bridge._
+- **Should `Darstellung & Root-Layout` be split into smaller, more focused modules?**
+  _Cohesion score 0.08266129032258064 - nodes in this community are weakly interconnected._
+- **Why does `Db` connect `Fingerabdrücke & Datenbank` to `Wechselkurs & HTTP-Tests`, `Scan-Erkennung (Server)`, `Fingerabdrücke & Benchmark`, `Scan-Routen & Fehler`, `Sammlung, Score & Achievements`, `Abgleich-Tests & Population`, `Katalog-Routen & Markt`, `Abgleich & Speichern`, `Portfolio & Favoriten (Server)`, `Visueller Index & Scan-Routen`?**
+  _High betweenness centrality (0.025) - this node is a cross-community bridge._
+- **Should `Expo-App-Konfiguration` be split into smaller, more focused modules?**
+  _Cohesion score 0.07692307692307693 - nodes in this community are weakly interconnected._

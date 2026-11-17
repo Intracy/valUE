@@ -1,0 +1,11 @@
+# Nur Quellcode in die Docker-Images. Abhängigkeiten installiert der Build selbst.
+**/node_modules
+**/.expo
+**/dist
+.git
+graphify
+graphify-out
+docs
+logs
+**/.env
+**/.env.*

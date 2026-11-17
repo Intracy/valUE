@@ -1,0 +1,49 @@
+# valUE als Test-Installation: Datenbank, API-Server und Web-App.
+# Start:  docker compose -f deploy/docker-compose.yml up -d --build
+# Die Web-App ist danach auf Port 8095 erreichbar (über Tailscale siehe deploy/README.md).
+name: value
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: value
+      POSTGRES_PASSWORD: value
+      POSTGRES_DB: value
+    volumes:
+      - value-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U value"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://value:value@db:5432/value
+      # Demo-Daten bei jedem Start auffrischen. Für echte Daten auf false und
+      # PPT_API_KEY setzen (siehe deploy/README.md).
+      SEED_DEMO: "true"
+      TRUST_PROXY: "true"
+      SCAN_OCR_WORKERS: "1"
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8095:80"
+
+volumes:
+  value-db:
