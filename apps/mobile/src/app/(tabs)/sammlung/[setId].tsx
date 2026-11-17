@@ -1,41 +1,46 @@
-import type { CardSummary } from '@value/api-types';
+import type { CardSummary, Element } from '@value/api-types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useOwnedInSet, useRemoveCard, useSet, useSetQuantity } from '@/api/queries';
 import { AppText } from '@/components/app-text';
 import { CardTile } from '@/components/card-tile';
+import { Ring } from '@/components/charts';
 import { formatMoney } from '@/components/format';
 import { successFeedback, tapFeedback } from '@/components/haptics';
 import { ProgressBar } from '@/components/progress-bar';
 import { ErrorView, LoadingView, MessageView } from '@/components/states';
 import { scrollProps } from '@/components/tab-stack';
-import { MAX_CONTENT_WIDTH, MIN_TOUCH, radius, space } from '@/theme/theme';
-import { usePalette } from '@/theme/use-palette';
+import { Chip, Segmented, Surface } from '@/components/ui';
+import { ELEMENT_ORDER, elementInfo, MAX_CONTENT_WIDTH, space } from '@/theme/theme';
 
 type Filter = 'alle' | 'fehlend' | 'vorhanden';
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'alle', label: 'Alle' },
-  { key: 'fehlend', label: 'Fehlend' },
-  { key: 'vorhanden', label: 'Vorhanden' },
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: 'alle', label: 'Alle' },
+  { value: 'fehlend', label: 'Fehlend' },
+  { value: 'vorhanden', label: 'Vorhanden' },
 ];
 
 const GAP = space.sm;
 const MIN_TILE = 96;
 
-/** Master-Set-Ansicht: alle Karten eines Sets, vorhandene farbig, fehlende ausgegraut. */
+/**
+ * Master-Set laut Moodboard: Fortschrittsring und Holo-Balken oben,
+ * Element-Chips zum Filtern, darunter das Raster. Vorhandene Karten zeigen ihr
+ * Motiv, fehlende nur die Silhouette mit Nummer.
+ */
 export default function SetScreen() {
   const { setId } = useLocalSearchParams<{ setId: string }>();
   const router = useRouter();
-  const colors = usePalette();
   const { width: windowWidth } = useWindowDimensions();
   const set = useSet(setId);
   const ownedQuery = useOwnedInSet(setId);
   const setQuantity = useSetQuantity();
   const removeCard = useRemoveCard();
   const [filter, setFilter] = useState<Filter>('alle');
+  const [element, setElement] = useState<Element | null>(null);
 
   // Spaltenzahl aus der Breite: Handy 3, iPad und Browser entsprechend mehr.
   const width = Math.min(windowWidth, MAX_CONTENT_WIDTH) - 2 * space.md;
@@ -53,9 +58,21 @@ export default function SetScreen() {
   const cards = set.data?.cards;
   const visible = useMemo(() => {
     if (!cards) return [];
-    if (filter === 'alle') return cards;
-    return cards.filter((card) => (owned.has(card.id) ? filter === 'vorhanden' : filter === 'fehlend'));
-  }, [cards, filter, owned]);
+    return cards.filter(
+      (card) =>
+        (element === null || card.element === element) &&
+        (filter === 'alle' || (owned.has(card.id) ? filter === 'vorhanden' : filter === 'fehlend')),
+    );
+  }, [cards, filter, element, owned]);
+
+  // Nur Elemente anbieten, die im Set vorkommen, mit Anzahl.
+  const elements = useMemo(() => {
+    const counts = new Map<Element, number>();
+    for (const card of cards ?? []) {
+      if (card.element) counts.set(card.element, (counts.get(card.element) ?? 0) + 1);
+    }
+    return ELEMENT_ORDER.filter((key) => counts.has(key)).map((key) => ({ key, count: counts.get(key)! }));
+  }, [cards]);
 
   const open = useCallback(
     (card: CardSummary) => router.push({ pathname: '/karte/[cardId]', params: { cardId: card.id } }),
@@ -84,43 +101,65 @@ export default function SetScreen() {
     (sum, card) => (owned.has(card.id) || !card.price ? sum : sum + card.price.amount),
     0,
   );
-  const currency = set.data.cards.find((card) => card.price)?.price?.currency ?? 'USD';
+
+  const currency = set.data.cards.find((card) => card.price)?.price?.currency ?? 'EUR';
+  const percent = total > 0 ? Math.round((have / total) * 100) : 0;
 
   const header = (
     <View style={styles.header}>
-      <View style={styles.progressLine}>
-        <AppText variant="subheadline" tone="secondary">
-          {have} von {total} Karten
-        </AppText>
-        {have < total ? (
-          <AppText variant="subheadline" tone="secondary">
-            Fehlende zusammen {formatMoney({ amount: missingValue, currency })}
+      <Surface style={styles.summary}>
+        <Ring value={have} total={total} size={112} thickness={10} label={`${set.data.set.name}: ${have} von ${total} Karten`}>
+          <AppText variant="title2" numeric>
+            {have}
+            <AppText variant="subheadline" tone="secondary" numeric>
+              {' '}/ {total}
+            </AppText>
           </AppText>
-        ) : (
-          <AppText variant="subheadline" tone="positive">
-            Set vollständig
+          <AppText variant="caption" tone="secondary">
+            gesammelt
           </AppText>
-        )}
-      </View>
-      <ProgressBar value={have} total={total} label={`Fortschritt ${set.data.set.name}`} />
+        </Ring>
+        <View style={styles.summaryText}>
+          <AppText variant="title3" numberOfLines={2} accessibilityRole="header">
+            {set.data.set.name}
+          </AppText>
+          <View style={styles.percentLine}>
+            <View style={styles.flex}>
+              <ProgressBar value={have} total={total} height={8} label={`Fortschritt ${set.data.set.name}`} />
+            </View>
+            <AppText variant="subheadline" numeric style={styles.bold}>
+              {percent} %
+            </AppText>
+          </View>
+          {have < total ? (
+            <AppText variant="footnote" tone="secondary">
+              Fehlende zusammen {formatMoney({ amount: Math.round(missingValue * 100) / 100, currency })}
+            </AppText>
+          ) : (
+            <AppText variant="footnote" tone="positive">
+              ✓ Master-Set vollständig
+            </AppText>
+          )}
+        </View>
+      </Surface>
 
-      <View style={[styles.segments, { backgroundColor: colors.fill }]} accessibilityRole="tablist">
-        {FILTERS.map((entry) => {
-          const selected = entry.key === filter;
-          return (
-            <Pressable
-              key={entry.key}
-              onPress={() => setFilter(entry.key)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected }}
-              style={[styles.segment, selected && { backgroundColor: colors.surface }]}>
-              <AppText variant="footnote" style={selected ? styles.segmentSelected : undefined}>
-                {entry.label}
-              </AppText>
-            </Pressable>
-          );
-        })}
-      </View>
+      {elements.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          <Chip label="Alle" selected={element === null} onPress={() => setElement(null)} />
+          {elements.map(({ key, count }) => (
+            <Chip
+              key={key}
+              label={elementInfo[key].label}
+              element={key}
+              count={count}
+              selected={element === key}
+              onPress={() => setElement(element === key ? null : key)}
+            />
+          ))}
+        </ScrollView>
+      ) : null}
+
+      <Segmented options={FILTERS} value={filter} onChange={setFilter} label="Karten anzeigen" />
       <AppText variant="footnote" tone="secondary">
         Tippen öffnet die Karte. Gedrückt halten trägt sie ein oder aus.
       </AppText>
@@ -129,7 +168,7 @@ export default function SetScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: set.data.set.name }} />
+      <Stack.Screen options={{ title: 'Master-Set' }} />
       <FlatList
         {...scrollProps}
         // Bei anderer Spaltenzahl muss die Liste neu aufgebaut werden.
@@ -144,7 +183,7 @@ export default function SetScreen() {
         ListEmptyComponent={
           <MessageView
             symbol={{ ios: 'checkmark.circle', android: 'inbox', web: 'inbox' }}
-            title={filter === 'fehlend' ? 'Nichts fehlt mehr' : 'Keine Karten in dieser Ansicht'}
+            title={filter === 'fehlend' && element === null ? 'Nichts fehlt mehr' : 'Keine Karten in dieser Ansicht'}
           />
         }
         columnWrapperStyle={styles.row}
@@ -169,15 +208,11 @@ const styles = StyleSheet.create({
     paddingBottom: space.xl,
   },
   row: { gap: GAP, marginBottom: GAP },
-  header: { gap: space.sm, paddingTop: space.md, paddingBottom: space.md },
-  progressLine: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: space.sm },
-  segments: { flexDirection: 'row', borderRadius: radius.sm, padding: 2, marginTop: space.sm },
-  segment: {
-    flex: 1,
-    minHeight: MIN_TOUCH - 4,
-    borderRadius: radius.sm - 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentSelected: { fontWeight: '600' },
+  header: { gap: space.md, paddingTop: space.md, paddingBottom: space.md },
+  summary: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  summaryText: { flex: 1, gap: space.xs },
+  percentLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  flex: { flex: 1 },
+  bold: { fontWeight: '700' },
+  chips: { gap: space.sm, paddingVertical: 2 },
 });

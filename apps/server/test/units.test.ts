@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import { evaluateAchievements, rankForLevel } from '../src/domain/achievements.js';
+import { normalizeElement } from '../src/domain/elements.js';
 import { cardXp, rarityTier, scoreTrack } from '../src/domain/xp.js';
-import { asIsoDate, asNumber, mapCard, mapSet, pick } from '../src/sources/pokemon-price-tracker.js';
+import { asIsoDate, asNumber, mapCard, mapGrades, mapPopulation, mapSet, pick } from '../src/sources/pokemon-price-tracker.js';
 import { csvRecords, exportPrintingRows, parseCsvLine } from '../src/sources/ppt-export.js';
 import type { SourceSet } from '../src/sources/price-source.js';
 import { numberSort } from '../src/sync/store.js';
@@ -130,5 +132,47 @@ describe('Sammelscore', () => {
     expect(scoreTrack(199).level).toBe(1);
     expect(scoreTrack(200)).toEqual({ xp: 200, level: 2, levelStartXp: 200, nextLevelXp: 450 });
     expect(scoreTrack(5000).level).toBe(10);
+  });
+});
+
+describe('Elemente, Grading und Abzeichen', () => {
+  it('erkennt Elemente in Listen, Texten und auf Deutsch', () => {
+    expect(normalizeElement(['Fire'])).toBe('fire');
+    expect(normalizeElement('Lightning')).toBe('lightning');
+    expect(normalizeElement('Pokémon - Wasser')).toBe('water');
+    expect(normalizeElement(['Trainer', 'Darkness'])).toBe('darkness');
+    expect(normalizeElement('Item')).toBeNull();
+    expect(normalizeElement(undefined)).toBeNull();
+    expect(mapCard({ tcgPlayerId: 1, name: 'A', types: ['Psychic'] }, set)?.element).toBe('psychic');
+  });
+
+  it('liest gegradete Preise aus ebay und Population aus dem Bericht', () => {
+    expect(
+      mapGrades({ ebay: { psa10: { avg: 450 }, psa9: { smartMarketPrice: '120.5' }, bgs9_5: { averagePrice: 300 }, foo: { avg: 1 } } }),
+    ).toEqual([
+      { grader: 'PSA', grade: '10', priceUsd: 450, population: null },
+      { grader: 'PSA', grade: '9', priceUsd: 120.5, population: null },
+      { grader: 'BGS', grade: '9.5', priceUsd: 300, population: null },
+    ]);
+    expect(mapGrades({ prices: { market: 1 } })).toEqual([]);
+    expect(
+      mapPopulation({ populationByGrader: { PSA: { g10: 142, g9: 512, auth: 3, totalPopulation: 700 }, CGC: { g9_5: 12 } } }),
+    ).toEqual([
+      { grader: 'PSA', grade: '10', priceUsd: null, population: 142 },
+      { grader: 'PSA', grade: '9', priceUsd: null, population: 512 },
+      { grader: 'CGC', grade: '9.5', priceUsd: null, population: 12 },
+    ]);
+  });
+
+  it('vergibt Abzeichen von Bronze bis Holo', () => {
+    const base = { uniqueCards: 0, completedSets: 0, maxVariants: 0, secretCards: 0, vintageCards: 0, scannedCards: 0, byElement: {} };
+    const at = (stats: Partial<typeof base>, id: string) =>
+      evaluateAchievements({ ...base, ...stats }).find((entry) => entry.id === id)!;
+    expect(at({}, 'collector')).toMatchObject({ tier: null, nextTarget: 10 });
+    expect(at({ uniqueCards: 10 }, 'collector')).toMatchObject({ tier: 'bronze', nextTarget: 100 });
+    expect(at({ uniqueCards: 2000 }, 'collector')).toMatchObject({ tier: 'holo', nextTarget: null });
+    expect(at({ byElement: { water: 60 } }, 'element-water')).toMatchObject({ tier: 'silver', element: 'water' });
+    expect(rankForLevel(1)).toBe('Einsteiger');
+    expect(rankForLevel(42)).toBe('Legende');
   });
 });

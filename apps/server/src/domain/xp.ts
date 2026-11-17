@@ -1,4 +1,6 @@
-import type { ScoreTrack } from '@value/api-types';
+import type { RarityTier, ScoreTrack } from '@value/api-types';
+
+export type { RarityTier };
 
 /**
  * Sammelscore laut Konzept: XP nach Seltenheit, nicht nach Preis.
@@ -6,7 +8,7 @@ import type { ScoreTrack } from '@value/api-types';
  * Die Werte sind ein Vorschlag und werden im Beta-Test abgestimmt.
  */
 
-export type RarityTier = 'common' | 'uncommon' | 'rare' | 'holo' | 'ultra' | 'secret';
+export const RARITY_TIERS: RarityTier[] = ['common', 'uncommon', 'rare', 'holo', 'ultra', 'secret'];
 
 export const XP_BY_TIER: Record<RarityTier, number> = {
   common: 5,

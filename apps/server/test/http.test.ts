@@ -49,7 +49,7 @@ describe('Katalog', () => {
     expect(body.cards).toHaveLength(24);
     expect(body.cards.slice(0, 3).map((card: { number: string }) => card.number)).toEqual(['1/24', '2/24', '3/24']);
     expect(body.cards[9].number).toBe('10/24');
-    expect(body.cards[0].price).toMatchObject({ currency: 'USD' });
+    expect(body.cards[0].price).toMatchObject({ currency: 'EUR' });
   });
 
   it('liefert Kartendetail mit Varianten und Preisverlauf', async () => {
@@ -57,7 +57,7 @@ describe('Katalog', () => {
     expect(body.card).toMatchObject({ id: 'demo-aurora-003', setName: 'Demo-Set Aurora', setReleaseDate: '2026-03-14' });
     expect(body.printings.map((p: { printing: string }) => p.printing)).toEqual(['Normal', 'Reverse Holofoil']);
     expect(body.history.points).toHaveLength(6);
-    expect(body.history.currency).toBe('USD');
+    expect(body.history.currency).toBe('EUR');
   });
 
   it('sucht nach Namen und ignoriert zu kurze Anfragen', async () => {
@@ -140,7 +140,103 @@ describe('Sammlung und Profil', () => {
     expect(profile.uniqueCards).toBe(15);
     expect(profile.totalCards).toBe(18);
     expect(profile.completedSets).toBe(1);
-    expect(profile.collectionValue.currency).toBe('USD');
+    expect(profile.collectionValue.currency).toBe('EUR');
     expect(profile.collectionValue.amount).toBeGreaterThan(0);
+
+    expect(profile.rank).toBe('Einsteiger');
+    expect(profile.rarityDistribution.map((entry: { tier: string }) => entry.tier)).toEqual([
+      'common', 'uncommon', 'rare', 'holo', 'ultra', 'secret',
+    ]);
+    const counted = profile.rarityDistribution.reduce((sum: number, entry: { cards: number }) => sum + entry.cards, 0);
+    expect(counted).toBe(15);
+    const badge = (id: string) => profile.achievements.find((entry: { id: string }) => entry.id === id);
+    expect(badge('collector')).toMatchObject({ tier: 'bronze', progress: 15, nextTarget: 100 });
+    expect(badge('set-master')).toMatchObject({ tier: 'bronze', progress: 1, nextTarget: 3 });
+    expect(badge('variants')).toMatchObject({ tier: 'bronze', progress: 2 });
+    expect(badge('secret')).toMatchObject({ tier: 'bronze', progress: 2 });
+    expect(badge('vintage')).toMatchObject({ tier: 'silver', progress: 12, nextTarget: 50 });
+    expect(badge('scanner')).toMatchObject({ tier: null, progress: 0, nextTarget: 1 });
+    expect(badge('element-fire')).toMatchObject({ element: 'fire', tier: null });
+  });
+
+  it('speichert einen Anzeigenamen und prüft ihn', async () => {
+    const { headers } = await signUp();
+    const patch = (displayName: unknown) =>
+      app.inject({ method: 'PATCH', url: '/v1/me/profile', headers, payload: { displayName } });
+    expect((await patch('  Tobias   L. ')).json()).toEqual({ displayName: 'Tobias L.' });
+    expect((await app.inject({ url: '/v1/me/profile', headers })).json().displayName).toBe('Tobias L.');
+    expect((await patch('x'.repeat(41))).statusCode).toBe(400);
+    expect((await patch(42)).statusCode).toBe(400);
+    expect((await patch('')).json()).toEqual({ displayName: null });
+  });
+});
+
+describe('Design-Erweiterungen', () => {
+  it('liefert Element und Grading-Daten in der Kartenansicht', async () => {
+    const body = (await app.inject({ url: '/v1/cards/demo-aurora-009' })).json();
+    expect(['fire', 'water', 'grass', 'lightning', 'psychic', 'fighting', null]).toContain(body.card.element);
+    // Secret Rare: Demo-Daten mit PSA und CGC, höchste Note zuerst.
+    const psa = body.grades.filter((grade: { grader: string }) => grade.grader === 'PSA');
+    expect(psa.map((grade: { grade: string }) => grade.grade)).toEqual(['10', '9', '8']);
+    expect(psa[0].price.currency).toBe('USD');
+    expect(psa[0].population).toBeGreaterThan(0);
+    const cgc = body.grades.filter((grade: { grader: string }) => grade.grader === 'CGC');
+    expect(cgc.map((grade: { grade: string }) => grade.grade)).toEqual(['10', '9.5', '9']);
+    // Häufige Karte: keine Grading-Daten.
+    expect((await app.inject({ url: '/v1/cards/demo-aurora-001' })).json().grades).toEqual([]);
+  });
+
+  it('rechnet das Portfolio mit Verlauf, Veränderung und Top-Karten', async () => {
+    const { headers } = await signUp();
+    const empty = (await app.inject({ url: '/v1/me/portfolio', headers })).json();
+    expect(empty).toMatchObject({ range: '1M', value: null, points: [], topCards: [] });
+
+    await app.inject({ method: 'PUT', url: '/v1/me/collection/items/demo-aurora-009', headers, payload: { quantity: 2 } });
+    await app.inject({ method: 'PUT', url: '/v1/me/collection/items/demo-aurora-001', headers, payload: { quantity: 1 } });
+    const body = (await app.inject({ url: '/v1/me/portfolio?range=1W', headers })).json();
+    expect(body.range).toBe('1W');
+    expect(body.value.currency).toBe('EUR');
+    expect(body.totalCards).toBe(3);
+    expect(body.uniqueCards).toBe(2);
+    // seedDemo(db, 5): sechs Tage Verlauf, alle im Zeitraum einer Woche.
+    expect(body.points).toHaveLength(6);
+    expect(body.points.at(-1).amount).toBe(body.value.amount);
+    expect(body.change.amount).toBeCloseTo(body.value.amount - body.points[0].amount, 2);
+    expect(body.topCards[0]).toMatchObject({ id: 'demo-aurora-009', quantity: 2 });
+    expect(body.topCards[0].value.amount).toBeGreaterThan(body.topCards[1].value.amount);
+
+    expect((await app.inject({ url: '/v1/me/portfolio?range=5J', headers })).statusCode).toBe(400);
+  });
+
+  it('nennt Gewinner und Verlierer am Markt, öffentlich zwischengespeichert', async () => {
+    const response = await app.inject({ url: '/v1/market/movers?days=3&limit=5' });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['cache-control']).toContain('public');
+    const body = response.json();
+    expect(body.days).toBe(3);
+    expect(body.gainers.length + body.losers.length).toBeGreaterThan(0);
+    for (const card of body.gainers) expect(card.changePercent).toBeGreaterThan(0);
+    for (const card of body.losers) expect(card.changePercent).toBeLessThan(0);
+    const changes = body.gainers.map((card: { changePercent: number }) => card.changePercent);
+    expect(changes).toEqual([...changes].sort((a, b) => b - a));
+  });
+
+  it('merkt sich beobachtete Karten je Nutzer', async () => {
+    const one = await signUp();
+    const two = await signUp();
+    const put = (cardId: string) =>
+      app.inject({ method: 'PUT', url: `/v1/me/favorites/${cardId}`, headers: one.headers });
+    expect((await put('demo-basalt-004')).json()).toEqual({ cardId: 'demo-basalt-004', favorite: true });
+    await put('demo-basalt-004');
+    await put('demo-aurora-002');
+    expect((await put('gibt-es-nicht')).statusCode).toBe(404);
+
+    const list = (await app.inject({ url: '/v1/me/favorites', headers: one.headers })).json();
+    expect(list.cards.map((card: { id: string }) => card.id)).toEqual(['demo-aurora-002', 'demo-basalt-004']);
+    expect((await app.inject({ url: '/v1/me/favorites', headers: two.headers })).json().cards).toEqual([]);
+
+    await app.inject({ method: 'DELETE', url: '/v1/me/favorites/demo-aurora-002', headers: one.headers });
+    const after = (await app.inject({ url: '/v1/me/favorites', headers: one.headers })).json();
+    expect(after.cards.map((card: { id: string }) => card.id)).toEqual(['demo-basalt-004']);
   });
 });

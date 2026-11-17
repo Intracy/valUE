@@ -4,6 +4,7 @@ import { createPool } from '../db/pool.js';
 import { PokemonPriceTrackerSource } from '../sources/pokemon-price-tracker.js';
 import { exportPrintingRows, openExport } from '../sources/ppt-export.js';
 import { computeMissingFingerprints } from '../scan/fingerprint-job.js';
+import { runPopulationSync } from './population.js';
 import { runApiSync, runExportSync } from './sync.js';
 
 /**
@@ -32,7 +33,11 @@ try {
         )
       : await runApiSync(
           db,
-          new PokemonPriceTrackerSource({ apiKey: config.ppt.apiKey, baseUrl: config.ppt.baseUrl }),
+          new PokemonPriceTrackerSource({
+            apiKey: config.ppt.apiKey,
+            baseUrl: config.ppt.baseUrl,
+            includeGraded: config.sync.includeGraded,
+          }),
           {
             sets: config.sync.sets,
             language: config.sync.language,
@@ -50,6 +55,14 @@ try {
     // Fingerabdrücke für den Scanner. Lädt die Kartenbilder; nur neue oder geänderte.
     const fingerprints = await computeMissingFingerprints(db, { log });
     log(`Scanner: ${fingerprints.computed} Fingerabdrücke neu, ${fingerprints.failed} Bilder nicht verwertbar.`);
+  }
+  if (config.sync.populationMaxCards > 0) {
+    const population = await runPopulationSync(
+      db,
+      new PokemonPriceTrackerSource({ apiKey: config.ppt.apiKey, baseUrl: config.ppt.baseUrl }),
+      { maxCards: config.sync.populationMaxCards, language: config.sync.language, log },
+    );
+    log(`Population: ${population.cards} Karten, ${population.creditsUsed} Credits.`);
   }
   process.exitCode = result.status === 'failed' ? 1 : 0;
 } finally {

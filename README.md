@@ -4,7 +4,7 @@
 
 **Deine Sammelkarten. Ihr Wert. Jedes Set im Blick.**
 
-Karten scannen, Master-Sets vervollständigen, Tagespreise verfolgen. Für iOS, Android und das Web aus einem Code.
+Karten scannen, Master-Sets vervollständigen, Tagespreise verfolgen. Für iOS, Android und das Web aus einem Code, im Dark und im Light Theme.
 
 [![CI](https://github.com/Intracy/valUE/actions/workflows/ci.yml/badge.svg)](https://github.com/Intracy/valUE/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/Status-Prototyp-orange)
@@ -13,7 +13,7 @@ Karten scannen, Master-Sets vervollständigen, Tagespreise verfolgen. Für iOS, 
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 
-<img src="docs/screenshots/hero.png" alt="valUE: Sammlungsübersicht, Scanner mit Nachfrage und Master-Set-Raster" width="100%">
+<img src="docs/screenshots/hero.png" alt="valUE: Portfolio im Dark Theme, Master-Set im Light Theme, Kartendetail mit Holo-Rahmen" width="100%">
 
 <sub>Aufnahmen der Web-Fassung mit erfundenen Demo-Daten. Kartennamen und Motive sind Platzhalter und zeigen keine echten Karten.</sub>
 
@@ -31,17 +31,17 @@ Dieses Repository enthält das Grundgerüst und einen lauffähigen Prototyp: App
 
 | | Funktion | Stand |
 | --- | --- | --- |
+| 📊 | **Portfolio**: Gesamtwert, Veränderung, Wertverlauf mit Holo-Linie (1T bis Max), wertvollste Karten | ✅ Prototyp |
 | 📷 | **Scanner**: Karte mit der Kamera erkennen, Nachfrage vor dem Eintragen, Auswahl bei Unsicherheit | ✅ Prototyp |
-| 🗂️ | **Master-Sets**: alle Karten eines Sets im Raster, vorhandene farbig, fehlende ausgegraut, Filter „Fehlend“ und „Vorhanden“ | ✅ Prototyp |
+| 🗂️ | **Master-Sets**: Fortschrittsring, Element-Filter, vorhandene Karten mit Rahmen, fehlende als Silhouette | ✅ Prototyp |
 | 💶 | **Restkosten**: was die fehlenden Karten eines Sets zum Tagespreis zusammen kosten | ✅ Prototyp |
-| 🃏 | **Kartendetail** mit Tagespreis, Preisverlauf, Varianten und Fakten | ✅ Prototyp |
-| 📈 | **Sammlungswert** zum Tagespreis, Fortschritt je Set | ✅ Prototyp |
-| 🏅 | **Sammelscore und Vintage-Score** mit Stufen | ✅ Prototyp |
-| 🔎 | **Suche** nach Kartennamen über alle Sets | ✅ Prototyp |
-| 🌗 | Hell und Dunkel, iPhone, iPad, Android und Browser | ✅ Prototyp |
+| 🃏 | **Kartendetail**: Raw / PSA / CGC, Wert-Verlauf, Grading-Population, Teilen, Beobachten, Bestand je Variante | ✅ Prototyp |
+| 🛒 | **Markt**: Suche, größte Gewinner und Verlierer (24 h, 7 und 30 Tage), beobachtete Karten | ✅ Prototyp |
+| 🏅 | **Profil**: Level-Ring, Sammelscore, Vintage-Score, 12 Achievements von Bronze bis Holo, Seltenheitsverteilung | ✅ Prototyp |
+| 🔥 | **Elemente** als Abzeichen und Filter, immer mit Symbol und Name | ✅ Prototyp |
+| 🌗 | **Dark und Light Theme** nach dem Design-Moodboard, wählbar (Dunkel, Hell, System), iPhone, iPad, Android, Browser | ✅ Prototyp |
 | 🎯 | Scanner mit gelerntem Bildmodell, gemessen an echten Fotos | 🔜 nächste Phase |
-| 🏆 | Achievements und Profil-Schmuck | 🔜 geplant |
-| 🇪🇺 | Euro-Preise von Cardmarket, Graded-Preise, Population | 🔜 geplant |
+| 🇪🇺 | Euro-Preise von Cardmarket | 🔜 geplant |
 | 🔐 | Anmeldung mit E-Mail, Apple und Google, Abo und Einmalkauf | 🔜 geplant |
 
 ## Screenshots
@@ -51,7 +51,7 @@ Dieses Repository enthält das Grundgerüst und einen lauffähigen Prototyp: App
 <table>
   <tr>
     <td align="center" width="25%"><img src="docs/screenshots/scanner-live.png" alt="Scanner mit Suchrahmen" width="200"><br><sub><b>Karte in den Rahmen</b><br>Kamera-Knopf in der Mitte</sub></td>
-    <td align="center" width="25%"><img src="docs/screenshots/scanner-confirm.png" alt="Nachfrage vor dem Eintragen" width="200"><br><sub><b>„Ist das deine Karte?“</b><br>mit Varianten-Auswahl</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/scanner-confirm.png" alt="Nachfrage vor dem Eintragen" width="200"><br><sub><b>„Karte erkannt“</b><br>Nachfrage mit Varianten-Auswahl</sub></td>
     <td align="center" width="25%"><img src="docs/screenshots/scanner-choose.png" alt="Auswahl bei Unsicherheit" width="200"><br><sub><b>„Welche Karte ist es?“</b><br>Vorschläge bei Unsicherheit</sub></td>
     <td align="center" width="25%"><img src="docs/screenshots/scanner-added.png" alt="Karte hinzugefügt" width="200"><br><sub><b>Hinzugefügt</b><br>bereit für die nächste Karte</sub></td>
   </tr>
@@ -59,30 +59,42 @@ Dieses Repository enthält das Grundgerüst und einen lauffähigen Prototyp: App
 
 Erkannt wird über Bildvergleich, Kartenname und Kartennummer zusammen. Nichts landet ohne Bestätigung in der Sammlung. Ablauf, Messwerte und Grenzen: [docs/SCANNER.md](docs/SCANNER.md).
 
-### App
+### App im Dark Theme
+
+Gestaltet nach dem valUE-Design-Moodboard: Mitternachtsblau, Holo-Verlauf nur für Marke, Haupt-Aktion und Fortschritt, Zahlen zuerst. Mehr dazu in [docs/DESIGN.md](docs/DESIGN.md).
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="docs/screenshots/sammlung.png" alt="Sammlung" width="240"><br><sub><b>Sammlung</b><br>Wert und angefangene Sets</sub></td>
-    <td align="center" width="33%"><img src="docs/screenshots/set.png" alt="Master-Set" width="240"><br><sub><b>Master-Set</b><br>fehlende Karten ausgegraut</sub></td>
-    <td align="center" width="33%"><img src="docs/screenshots/karte.png" alt="Kartendetail" width="240"><br><sub><b>Kartendetail</b><br>Preis, Verlauf, Bestand</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/portfolio.png" alt="Portfolio" width="200"><br><sub><b>Portfolio</b><br>Wert, Verlauf, Top-Karten</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/sammlung.png" alt="Sammlung" width="200"><br><sub><b>Sammlung</b><br>Sets mit Fortschrittsring</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/set.png" alt="Master-Set" width="200"><br><sub><b>Master-Set</b><br>Ring, Element-Filter, Silhouetten</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/karte.png" alt="Kartendetail" width="200"><br><sub><b>Kartendetail</b><br>Raw, Wert-Verlauf</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/profil.png" alt="Profil" width="240"><br><sub><b>Profil</b><br>Sammelscore und Vintage-Score</sub></td>
-    <td align="center"><img src="docs/screenshots/suche.png" alt="Suche" width="240"><br><sub><b>Suche</b><br>über alle Sets</sub></td>
-    <td align="center"><img src="docs/screenshots/sets.png" alt="Sets" width="240"><br><sub><b>Sets</b><br>Fortschritt je Set</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/set-dark.png" alt="Master-Set dunkel" width="240"><br><sub><b>Dunkelmodus</b></sub></td>
-    <td align="center"><img src="docs/screenshots/karte-dark.png" alt="Kartendetail dunkel" width="240"><br><sub><b>Vintage-Set im Dunkelmodus</b></sub></td>
+    <td align="center"><img src="docs/screenshots/karte-psa.png" alt="Kartendetail PSA" width="200"><br><sub><b>PSA</b><br>Preis je Note, Population</sub></td>
+    <td align="center"><img src="docs/screenshots/markt.png" alt="Markt" width="200"><br><sub><b>Markt</b><br>Gewinner, Verlierer, Beobachtet</sub></td>
+    <td align="center"><img src="docs/screenshots/profil.png" alt="Profil" width="200"><br><sub><b>Profil</b><br>Level-Ring, Scores, Achievements</sub></td>
     <td></td>
+  </tr>
+</table>
+
+### App im Light Theme
+
+<table>
+  <tr>
+    <td align="center" width="25%"><img src="docs/screenshots/portfolio-light.png" alt="Portfolio hell" width="200"></td>
+    <td align="center" width="25%"><img src="docs/screenshots/set-light.png" alt="Master-Set hell" width="200"></td>
+    <td align="center" width="25%"><img src="docs/screenshots/karte-psa-light.png" alt="Kartendetail PSA hell" width="200"></td>
+    <td align="center" width="25%"><img src="docs/screenshots/profil-light.png" alt="Profil hell" width="200"></td>
   </tr>
 </table>
 
 <details>
 <summary><b>Im Browser auf dem Desktop</b></summary>
 <br>
-<img src="docs/screenshots/desktop-set.png" alt="Master-Set im Browser auf breitem Bildschirm" width="100%">
+<img src="docs/screenshots/desktop-portfolio.png" alt="Portfolio im Browser auf breitem Bildschirm, Dark Theme" width="100%">
+<br><br>
+<img src="docs/screenshots/desktop-set.png" alt="Master-Set im Browser auf breitem Bildschirm, Light Theme" width="100%">
 </details>
 
 > [!NOTE]
@@ -117,7 +129,7 @@ Mehr dazu in [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md), die Umsetzung der Apple
 
 | Bereich | Werkzeuge |
 | --- | --- |
-| App | Expo SDK 58, React Native, Expo Router, TanStack Query, `expo-image`, SF Symbols über `expo-symbols` |
+| App | Expo SDK 58, React Native, Expo Router, TanStack Query, `expo-image`, `react-native-svg` (Holo-Verlauf, Diagramme, Ringe), SF Symbols über `expo-symbols` |
 | Server | Node.js 22, Fastify 5, PostgreSQL 16 (Partitionierung, Trigramm-Suche), Zod |
 | Scanner | `expo-camera`, `expo-image-manipulator`, sharp, Tesseract (tesseract.js) |
 | Vertrag | Gemeinsame TypeScript-Typen in `packages/api-types` |
@@ -162,7 +174,7 @@ Der kostenlose Tarif hat 100 Credits am Tag, ein Set kostet einen Credit je Kart
 
 ```bash
 npm run typecheck      # Server, App und Vertrag
-npm test               # 39 Servertests gegen PostgreSQL, darunter Scanner mit simulierten Fotos
+npm test               # 48 Servertests gegen PostgreSQL, darunter Scanner mit simulierten Fotos
 ```
 
 Lasttest mit **50.000 Karten, 10.000 Nutzern und 3 Mio. Sammlungseinträgen** auf einer Maschine mit 2 Kernen, ohne Fehler:
@@ -173,7 +185,10 @@ Lasttest mit **50.000 Karten, 10.000 Nutzern und 3 Mio. Sammlungseinträgen** au
 | Set, App hat den Stand schon (304) | 22.471 | 2 ms |
 | Kartendetail mit Verlauf | 1.885 | 25 ms |
 | Karte eintragen | 3.915 | 11 ms |
-| Profil mit Score | 295 | 172 ms |
+| Profil mit Score und Achievements | 202 | 231 ms |
+| Portfolio mit Wertverlauf (30 Tage, je 300 Karten) | 61 | 775 ms |
+| Markt: Gewinner und Verlierer | 12.270 | 3 ms |
+| Beobachtete Karten | 2.857 | 16 ms |
 
 Alle Messwerte, Bedingungen und das Vorgehen zum Nachmessen stehen in [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md#lasttest).
 
@@ -185,8 +200,8 @@ apps/
     src/app/         Bildschirme (dateibasiertes Routing)
     src/api/         Anbindung an den eigenen Server
     src/scan/        Suchrahmen, Fotoaufbereitung, Ergebnisblatt
-    src/components/  Bausteine: Kartenkachel, Listen, Zustände
-    src/theme/       Farben, Schrift und Abstände nach den Apple-Richtlinien
+    src/components/  Bausteine: Holo-Verlauf, Diagramme, Kartenkachel, Abzeichen, Listen
+    src/theme/       Dark und Light Theme aus dem Moodboard, Schrift, Abstände, Darstellung
   server/            API-Server und Abgleich
     migrations/      Datenbankschema
     src/sources/     Anbindung an Pokemon Price Tracker
@@ -204,12 +219,13 @@ graphify/            Wissensgraph des Repositorys zur Orientierung (siehe graphi
 - [x] Grundgerüst: App, Server, Datenbank, Abgleich, Tests, CI
 - [x] Master-Set-Ansicht, Kartendetail, Suche, Profil mit Scores
 - [x] Scanner mit Nachfrage und Auswahl bei Unsicherheit
+- [x] Design nach Moodboard: Dark und Light Theme, Portfolio, Markt, Achievements, Elemente, Grading
 - [ ] Erster Lauf im iOS-Simulator und auf Android
 - [ ] Zuordnung gegen die echte API prüfen, erster echter Abgleich
 - [ ] Scanner an echten Fotos messen, gelerntes Bildmodell
-- [ ] Achievements und Profil-Schmuck
 - [ ] Anmeldung, Abo und Einmalkauf
-- [ ] Euro-Preise, Graded-Preise und Population
+- [ ] Euro-Preise von Cardmarket; Graded-Preise und Population mit echtem Tarif prüfen
+- [ ] Portfolio-Verlauf als tägliche Momentaufnahme je Nutzer, damit er bei großen Sammlungen schnell bleibt
 
 ## Rechtliches
 

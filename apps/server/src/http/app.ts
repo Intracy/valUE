@@ -12,6 +12,7 @@ import { createCatalogVersion } from './catalog-version.js';
 import { HttpError } from './errors.js';
 import { registerCatalogRoutes } from './routes/catalog.js';
 import { registerCollectionRoutes } from './routes/collection.js';
+import { registerPortfolioRoutes } from './routes/portfolio.js';
 import { registerScanRoutes } from './routes/scan.js';
 
 export interface AppOptions {
@@ -42,7 +43,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   await app.register(compress, { threshold: 1024 });
   await app.register(cors, {
     origin: options.corsOrigins?.length ? options.corsOrigins : true,
-    methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'PUT', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     maxAge: 86_400,
   });
   if (options.rateLimitPerMinute) {
@@ -91,6 +92,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const authenticate = createAuthenticator(options.db);
   registerCatalogRoutes(app, options.db, version);
   registerCollectionRoutes(app, options.db, authenticate);
+  registerPortfolioRoutes(app, options.db, authenticate);
 
   // Der Pool startet erst beim ersten Scan; der Index lädt erst beim ersten Scan.
   const ocr = options.scan?.ocr ?? createOcrPool(options.scan?.ocrWorkers ?? 2);

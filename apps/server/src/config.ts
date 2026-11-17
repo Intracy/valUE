@@ -34,6 +34,16 @@ const schema = z.object({
   SCAN_OCR_WORKERS: z.coerce.number().int().positive().default(2),
   /** Scans je Minute und Absender. Scannen ist der teuerste Aufruf. */
   SCAN_RATE_PER_MINUTE: z.coerce.number().int().positive().default(30),
+  /** Gegradete eBay-Preise (PSA, CGC …) beim Karten-Abruf mitladen. */
+  SYNC_INCLUDE_GRADED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  /**
+   * Populationsbericht für so viele Karten je Lauf holen (2 Credits je Karte,
+   * nur Business-Tarif). 0 schaltet ihn ab.
+   */
+  SYNC_POPULATION_MAX_CARDS: z.coerce.number().int().nonnegative().default(0),
   /** Set-Liste höchstens so oft neu laden (kostet 1 Credit). */
   SYNC_SETS_REFRESH_HOURS: z.coerce.number().int().positive().default(168),
 });
@@ -72,6 +82,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
       language: value.SYNC_LANGUAGE,
       maxCreditsPerRun: value.SYNC_MAX_CREDITS_PER_RUN,
       setsRefreshHours: value.SYNC_SETS_REFRESH_HOURS,
+      includeGraded: value.SYNC_INCLUDE_GRADED,
+      populationMaxCards: value.SYNC_POPULATION_MAX_CARDS,
     },
   };
 }

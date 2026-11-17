@@ -28,6 +28,26 @@ export interface SetListResponse {
   catalogVersion: string;
 }
 
+/**
+ * Element (Energietyp) einer Karte. Die App zeigt es als farbiges Abzeichen,
+ * immer mit Symbol und Namen, nie nur als Farbe.
+ */
+export type Element =
+  | 'fire'
+  | 'water'
+  | 'grass'
+  | 'lightning'
+  | 'psychic'
+  | 'fighting'
+  | 'darkness'
+  | 'metal'
+  | 'dragon'
+  | 'fairy'
+  | 'colorless';
+
+/** Seltenheitsstufe für Sammelscore und Verteilung im Profil. */
+export type RarityTier = 'common' | 'uncommon' | 'rare' | 'holo' | 'ultra' | 'secret';
+
 /** Kompakte Karte für Raster und Listen. */
 export interface CardSummary {
   id: string;
@@ -37,6 +57,8 @@ export interface CardSummary {
   rarity: string | null;
   imageUrl: string | null;
   price: Money | null;
+  /** Null bei Karten ohne Element, etwa Trainern, oder wenn die Quelle keins nennt. */
+  element: Element | null;
 }
 
 export interface SetDetailResponse {
@@ -56,6 +78,18 @@ export interface PricePoint {
   amount: number;
 }
 
+export type Grader = 'PSA' | 'CGC' | 'BGS' | 'SGC';
+
+/** Preis und Population einer Note bei einer Grading-Firma. */
+export interface CardGrade {
+  grader: Grader;
+  /** Note als Text: "10", "9.5", "9". */
+  grade: string;
+  price: Money | null;
+  /** Gegradete Exemplare mit dieser Note laut Populationsbericht. */
+  population: number | null;
+}
+
 export interface CardDetailResponse {
   card: CardSummary & {
     setName: string;
@@ -65,6 +99,8 @@ export interface CardDetailResponse {
   };
   printings: CardPrinting[];
   history: { currency: Currency; points: PricePoint[] };
+  /** Höchste Note zuerst. Leer, wenn es keine Grading-Daten gibt. */
+  grades: CardGrade[];
   catalogVersion: string;
 }
 
@@ -122,14 +158,94 @@ export interface ScoreTrack {
   nextLevelXp: number;
 }
 
+export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'holo';
+
+/** Abzeichen im Profil. Stufen von Bronze bis Holo, je nach erreichter Schwelle. */
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  /** Erreichte Stufe, null solange noch keine erreicht ist. */
+  tier: AchievementTier | null;
+  /** Aktueller Stand, etwa Anzahl Karten. */
+  progress: number;
+  /** Schwelle der nächsten Stufe, null wenn Holo erreicht ist. */
+  nextTarget: number | null;
+  /** Bei Element-Abzeichen das Element, sonst null. */
+  element: Element | null;
+}
+
 export interface ProfileResponse {
   userId: string;
+  /** Selbst gewählter Name, null wenn keiner gesetzt ist. */
+  displayName: string | null;
+  /** Rang nach Stufe des Sammelscores, etwa "Meister-Sammler". */
+  rank: string;
   uniqueCards: number;
   totalCards: number;
   collectionValue: Money | null;
   score: ScoreTrack;
   vintageScore: ScoreTrack;
   completedSets: number;
+  achievements: Achievement[];
+  /** Verschiedene Karten je Seltenheitsstufe, alle sechs Stufen in fester Reihenfolge. */
+  rarityDistribution: { tier: RarityTier; cards: number }[];
+}
+
+export interface UpdateProfileRequest {
+  /** 1 bis 40 Zeichen; leer oder null entfernt den Namen. */
+  displayName: string | null;
+}
+
+export type PortfolioRange = '1T' | '1W' | '1M' | '1J' | 'Max';
+
+/** Eine Karte der Sammlung mit ihrem Anteil am Gesamtwert. */
+export interface PortfolioCard extends CardSummary {
+  setName: string;
+  quantity: number;
+  value: Money | null;
+}
+
+export interface PortfolioResponse {
+  range: PortfolioRange;
+  /** Wert zum heutigen Tagespreis. */
+  value: Money | null;
+  /** Veränderung gegenüber dem ersten Tag des Zeitraums. */
+  change: { amount: number; percent: number | null } | null;
+  /** Tageswerte der heutigen Sammlung im Zeitraum, ältester zuerst. */
+  points: PricePoint[];
+  uniqueCards: number;
+  totalCards: number;
+  /** Die wertvollsten Karten, höchster Wert zuerst. */
+  topCards: PortfolioCard[];
+}
+
+/** Karte mit Kursveränderung im Markt-Tab. */
+export interface MoverCard extends CardSummary {
+  setName: string;
+  previousPrice: Money;
+  changePercent: number;
+}
+
+export interface MarketMoversResponse {
+  days: number;
+  gainers: MoverCard[];
+  losers: MoverCard[];
+  catalogVersion: string;
+}
+
+export interface FavoriteCard extends CardSummary {
+  setName: string;
+  addedAt: string;
+}
+
+export interface FavoritesResponse {
+  cards: FavoriteCard[];
+}
+
+export interface FavoriteResponse {
+  cardId: string;
+  favorite: boolean;
 }
 
 export interface ApiError {

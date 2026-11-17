@@ -1,5 +1,5 @@
 import type { DbClient } from '../db/pool.js';
-import type { SourceCard, SourceSet } from '../sources/price-source.js';
+import type { SourceCard, SourceGrade, SourceSet } from '../sources/price-source.js';
 
 type Queryable = Pick<DbClient, 'query'>;
 
@@ -41,13 +41,13 @@ export async function upsertCards(db: Queryable, cards: SourceCard[]): Promise<v
   if (cards.length === 0) return;
   await db.query(
     `insert into cards (id, set_id, name, number, number_sort, rarity, image_url,
-                        market_price_usd, low_price_usd, price_updated_at, updated_at)
+                        market_price_usd, low_price_usd, price_updated_at, element, updated_at)
      select id, set_id, name, number, number_sort, rarity, image_url,
-            market_price_usd, low_price_usd, coalesce(price_updated_at, now()), now()
+            market_price_usd, low_price_usd, coalesce(price_updated_at, now()), element, now()
      from unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::int[], $6::text[], $7::text[],
-                 $8::numeric[], $9::numeric[], $10::timestamptz[])
+                 $8::numeric[], $9::numeric[], $10::timestamptz[], $11::text[])
        as t (id, set_id, name, number, number_sort, rarity, image_url,
-             market_price_usd, low_price_usd, price_updated_at)
+             market_price_usd, low_price_usd, price_updated_at, element)
      on conflict (id) do update set
        set_id = excluded.set_id,
        name = excluded.name,
@@ -58,6 +58,7 @@ export async function upsertCards(db: Queryable, cards: SourceCard[]): Promise<v
        market_price_usd = coalesce(excluded.market_price_usd, cards.market_price_usd),
        low_price_usd = coalesce(excluded.low_price_usd, cards.low_price_usd),
        price_updated_at = excluded.price_updated_at,
+       element = coalesce(excluded.element, cards.element),
        updated_at = now()`,
     [
       cards.map((card) => card.id),
@@ -70,7 +71,13 @@ export async function upsertCards(db: Queryable, cards: SourceCard[]): Promise<v
       cards.map((card) => card.marketPriceUsd),
       cards.map((card) => card.lowPriceUsd),
       cards.map((card) => card.priceUpdatedAt),
+      cards.map((card) => card.element ?? null),
     ],
+  );
+
+  await upsertGrades(
+    db,
+    cards.flatMap((card) => (card.grades ?? []).map((grade) => ({ cardId: card.id, ...grade }))),
   );
 
   const printings = cards.flatMap((card) =>
@@ -91,6 +98,32 @@ export async function upsertCards(db: Queryable, cards: SourceCard[]): Promise<v
       ],
     );
   }
+}
+
+/**
+ * Schreibt Noten mit Preis und/oder Population. Ein fehlender Wert (null)
+ * überschreibt keinen vorhandenen: Preise kommen aus dem Karten-Abruf, die
+ * Population aus einem eigenen Abruf.
+ */
+export async function upsertGrades(db: Queryable, grades: (SourceGrade & { cardId: string })[]): Promise<void> {
+  if (grades.length === 0) return;
+  await db.query(
+    `insert into card_grades (card_id, grader, grade, price_usd, population, updated_at)
+     select card_id, grader, grade, price_usd, population, now()
+     from unnest($1::text[], $2::text[], $3::text[], $4::numeric[], $5::int[])
+       as t (card_id, grader, grade, price_usd, population)
+     on conflict (card_id, grader, grade) do update set
+       price_usd = coalesce(excluded.price_usd, card_grades.price_usd),
+       population = coalesce(excluded.population, card_grades.population),
+       updated_at = now()`,
+    [
+      grades.map((grade) => grade.cardId),
+      grades.map((grade) => grade.grader),
+      grades.map((grade) => grade.grade),
+      grades.map((grade) => grade.priceUsd),
+      grades.map((grade) => grade.population),
+    ],
+  );
 }
 
 /** Hält den heutigen Preisstand der genannten Karten fest. Mehrfach am Tag ausführbar. */

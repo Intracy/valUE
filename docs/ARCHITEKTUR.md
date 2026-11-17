@@ -36,14 +36,19 @@ Der Vertrag steht als TypeScript-Typen in `packages/api-types`.
 | --- | --- | --- |
 | `GET /v1/sets` | Alle Sets | öffentlich, ETag |
 | `GET /v1/sets/:setId` | Ein Set mit allen Karten in Nummernfolge | öffentlich, ETag |
-| `GET /v1/cards/:cardId?days=90` | Kartendetail, Varianten, Preisverlauf | öffentlich, ETag |
+| `GET /v1/cards/:cardId?days=90` | Kartendetail, Varianten, Preisverlauf, Element, Preise und Population je Grading-Note | öffentlich, ETag |
+| `GET /v1/market/movers?days=7&limit=10` | Größte Gewinner und Verlierer im Katalog (ab 1 € bzw. 1 $). Einmal je Katalogstand gerechnet | öffentlich, ETag |
 | `GET /v1/search?q=` | Suche nach Kartennamen | öffentlich, kurz |
 | `POST /v1/auth/anonymous` | Anonymes Konto anlegen, liefert das Token einmalig | nie |
 | `GET /v1/me/collection/sets` | Fortschritt je Set | nie |
 | `GET /v1/me/collection/sets/:setId` | Eigene Karten in einem Set | nie |
 | `PUT /v1/me/collection/items/:cardId` | Bestand setzen, Menge 0 entfernt | nie |
 | `DELETE /v1/me/collection/items/:cardId` | Karte mit allen Varianten entfernen | nie |
-| `GET /v1/me/profile` | Sammelscore, Vintage-Score, Wert, volle Sets | nie |
+| `GET /v1/me/profile` | Name, Rang, Sammelscore, Vintage-Score, Wert, volle Sets, Achievements, Seltenheitsverteilung | nie |
+| `PATCH /v1/me/profile` | Anzeigenamen setzen (1 bis 40 Zeichen) oder entfernen | nie |
+| `GET /v1/me/portfolio?range=1M` | Wert heute, Veränderung, Tageswerte im Zeitraum (`1T`, `1W`, `1M`, `1J`, `Max`), Top-Karten | nie |
+| `GET /v1/me/favorites` | Beobachtete Karten | nie |
+| `PUT`/`DELETE /v1/me/favorites/:cardId` | Karte beobachten oder nicht mehr; Wiederholen ändert nichts | nie |
 | `POST /v1/me/scans` | Foto erkennen, liefert Ergebnis und Vorschläge. Begrenzt je Absender | nie |
 | `POST /v1/me/scans/:scanId/confirm` | Vorschlag bestätigen, Karte eintragen; genau einmal je Scan | nie |
 | `GET /healthz`, `GET /readyz` | Für Lastverteiler und Überwachung | |
@@ -85,6 +90,15 @@ Gemessen in der Entwicklungsumgebung: 2 Prozessorkerne, 7 GB Speicher, Server, P
 | Profil mit Score | 295 | 172 ms | 251 ms |
 | Karte eintragen | 3.915 | 11 ms | 27 ms |
 
+Mit dem Design aus dem Moodboard kamen vier Abrufe dazu (gleiche Daten und Maschine, je 10 Sekunden):
+
+| Abruf | Anfragen pro Sekunde | Median | 99 % schneller als |
+| --- | --- | --- | --- |
+| Profil mit Score, Achievements und Seltenheiten | 202 | 231 ms | 657 ms |
+| Portfolio mit 30 Tagen Verlauf (300 Karten je Nutzer) | 61 | 775 ms | 1.078 ms |
+| Beobachtete Karten | 2.857 | 16 ms | 33 ms |
+| Markt: Gewinner und Verlierer | 12.270 | 3 ms | 9 ms |
+
 Keine Fehler in allen Läufen. Die Zahlen sind eine untere Grenze: Der Lastgenerator teilt sich die zwei Kerne mit Server und Datenbank, und es liegt kein CDN davor. Ein Set mit 250 Karten ist unkomprimiert 40 KB groß, mit gzip 3,7 KB.
 
 Selbst nachmessen:
@@ -94,6 +108,16 @@ DATABASE_URL=... npm run seed:load -w @value/server      # nur in einer Wegwerf-
 RATE_LIMIT_PER_MINUTE=1000000000 npm run dev:server
 npm run loadtest -w @value/server
 ```
+
+### Portfolio-Verlauf
+
+Der Verlauf zeigt den heutigen Bestand zu den Preisen jedes Tages, wie bei Börsen-Apps. Der Server greift je Karte über den Index `(card_id, day)` in die Preistabelle (`LATERAL`), statt sie ganz zu lesen; ein normaler Join las bei 1,5 Mio. Preisständen alles und schaffte 4 Anfragen pro Sekunde. Lange Zeiträume nimmt er nur jeden 7. (`1J`) bzw. 30. Tag (`Max`). Bei 300 Karten sind das je Abruf rund 9.000 Indexzugriffe; bei kaltem Speicher dauert ein Abruf bis eine Sekunde. Für große Sammlungen ist der nächste Schritt eine tägliche Momentaufnahme des Werts je Nutzer, die der Abgleich nach den Preisen schreibt. Dann ist der Verlauf ein Zugriff auf höchstens 365 Zeilen.
+
+### Grading und Elemente
+
+- **Element** kommt aus dem Kartenfeld der Quelle (`types`, `energyType` …) und wird auf elf feste Schlüssel abgebildet, englisch wie deutsch (`domain/elements.ts`). Fehlt es in einem Abgleich, bleibt der gespeicherte Wert.
+- **Preise je Note** lädt der Abgleich mit `SYNC_INCLUDE_GRADED=true` über `includeEbay=true` mit. Belegt ist in der API-Referenz nur `ebay.psa10.avg`; die Zuordnung probiert weitere Hüllen und Preisfelder. Vor dem ersten echten Lauf mit `ppt:probe` prüfen.
+- **Population** kommt aus `GET /population` (nur Business-Tarif, 2 Credits je Karte). `SYNC_POPULATION_MAX_CARDS` legt fest, wie viele Karten je Lauf; zuerst die, die jemand besitzt oder beobachtet, und davon die wertvollsten. Ein Bericht gilt eine Woche. Preis und Population landen in derselben Tabelle `card_grades`, ohne sich gegenseitig zu überschreiben.
 
 ## Nächste Schritte für den Betrieb
 

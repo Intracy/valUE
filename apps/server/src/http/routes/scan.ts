@@ -67,10 +67,11 @@ export function registerScanRoutes(app: FastifyInstance, deps: ScanDeps) {
         image_url: string | null;
         market_price_usd: number | null;
         market_price_eur: number | null;
+        element: string | null;
         set_name: string;
         printings: string[];
       }>(
-        `select c.id, c.set_id, c.name, c.number, c.rarity, c.image_url, c.market_price_usd, c.market_price_eur,
+        `select c.id, c.set_id, c.name, c.number, c.rarity, c.image_url, c.market_price_usd, c.market_price_eur, c.element,
                 s.name as set_name,
                 coalesce(array_agg(p.printing order by p.printing) filter (where p.printing is not null), '{}') as printings
          from cards c
