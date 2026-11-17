@@ -157,6 +157,10 @@ Im Expo-Terminal öffnet <kbd>w</kbd> den Browser, <kbd>i</kbd> den iOS-Simulato
 
 [`scripts/iPhone-Test.command`](scripts/iPhone-Test.command) im Finder doppelklicken. Das Skript prüft Node.js, Docker und Git, holt den aktuellen Stand, startet Datenbank und Server mit Demo-Daten und zeigt einen QR-Code. Den mit der iPhone-Kamera scannen, dann öffnet sich valUE in „Expo Go“ (kostenlos im App Store). iPhone und Mac müssen im selben WLAN sein. Fenster schließen beendet alles.
 
+### Auf der Synology hosten
+
+Mit Docker und Tailscale, inklusive Skript für den Aufgabenplaner: [deploy/README.md](deploy/README.md).
+
 ## Echte Daten laden
 
 > [!IMPORTANT]
