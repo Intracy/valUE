@@ -1,7 +1,10 @@
 import type { Db } from '../db/pool.js';
-import { binarize, fingerprint, ocrRegions } from './image.js';
+import { adaptiveThreshold, binarize, fingerprint, invert, ocrRegions } from './image.js';
 import {
+  copyrightYear,
+  digitTokens,
   foldJapanese,
+  matchPrintedNumber,
   japaneseSimilarity,
   parseCardName,
   parseCardNumber,
@@ -11,6 +14,7 @@ import {
   type LowerFacts,
   type OcrEngine,
 } from './ocr.js';
+import { cropToCard } from './frame.js';
 import type { VisualIndex } from './visual-index.js';
 
 /**
@@ -96,10 +100,11 @@ export function scoreDetails(card: CandidateDetails, read: { lower: LowerFacts; 
   const { details: weights } = SCORING;
   const parts: [number, number][] = [];
   const { lower } = read;
-  if (lower.numbers.length > 0 || lower.totals.length > 0) {
+  const digitMatch = lower.digits ? matchPrintedNumber(lower.digits, card.numberSort, card.total) : 0;
+  if (lower.numbers.length > 0 || lower.totals.length > 0 || (lower.digits?.length ?? 0) > 0) {
     const exact = lower.numbers.some((n) => n.number === card.numberSort && n.total === card.total);
     const totalOnly = card.total !== null && lower.totals.includes(card.total);
-    parts.push([weights.number, exact ? 1 : totalOnly ? 0.45 : 0]);
+    parts.push([weights.number, Math.max(exact ? 1 : totalOnly ? 0.45 : 0, digitMatch)]);
   }
   if (lower.year !== null && card.releaseYear !== null) {
     const diff = Math.abs(lower.year - card.releaseYear);
@@ -156,7 +161,28 @@ export function decide(scored: ScoredCandidate[]): { outcome: ScanOutcome; candi
   };
 }
 
+/**
+ * Erkennt die Karte auf einem Foto. Ist das Ergebnis nicht eindeutig, sucht der
+ * Scanner die Karte im Bild (Hand, Tisch oder Hülle am Rand), schneidet sie aus
+ * und erkennt erneut; das bessere Ergebnis zählt. Die Leseausschnitte setzen
+ * voraus, dass die Karte das Bild füllt.
+ */
 export async function identifyCard(
+  image: Buffer,
+  deps: { db: Db; index: VisualIndex; ocr: OcrEngine },
+): Promise<Identification> {
+  const started = Date.now();
+  const first = await identifyImage(image, deps);
+  if (first.outcome === 'match') return first;
+  const cropped = await cropToCard(image).catch(() => null);
+  if (!cropped) return first;
+  const second = await identifyImage(cropped, deps);
+  const top = (result: Identification) => result.candidates[0]?.score ?? 0;
+  const better = second.outcome === 'match' || top(second) > top(first) ? second : first;
+  return { ...better, durationMs: Date.now() - started };
+}
+
+async function identifyImage(
   image: Buffer,
   deps: { db: Db; index: VisualIndex; ocr: OcrEngine },
 ): Promise<Identification> {
@@ -165,19 +191,27 @@ export async function identifyCard(
 
   // Mehrere Fassungen nacheinander, bis eine lesbar ist. Die erste klappt meistens,
   // die weiteren kosten nur bei schwierigen Fotos Zeit.
+  /** Alles, was die Ziffernerkennung gelesen hat; die zweite Stufe gleicht es mit jeder Kandidatenkarte ab. */
+  const digitTexts: string[] = [];
   const readNumber = async () => {
     const variants = [
       () => binarize(regions.numberLeft, 128),
       () => binarize(regions.numberRight, 128),
+      () => adaptiveThreshold(regions.numberRight),
+      () => adaptiveThreshold(regions.numberLeft),
       () => Promise.resolve(regions.numberLeft),
       () => Promise.resolve(regions.numberRight),
       () => binarize(regions.bottom, 110),
       () => Promise.resolve(regions.bottom),
       () => binarize(regions.bottom, 150),
+      () => invert(regions.numberRight),
+      () => invert(regions.numberLeft),
     ];
     for (const next of variants) {
       const variant = next();
-      const parsed = parseCardNumber((await deps.ocr.recognize(await variant, { digits: true })).text);
+      const text = (await deps.ocr.recognize(await variant, { digits: true })).text;
+      digitTexts.push(text);
+      const parsed = parseCardNumber(text);
       if (parsed) return parsed;
     }
     return null;
@@ -327,7 +361,12 @@ export async function identifyCard(
   // Illustrator jeder Kandidatenkarte vergleichen. Trennt etwa Neuauflagen mit
   // gleichem Bild und gleichem Namen.
   if (decision.outcome !== 'match') {
-    const lower = parseLowerText((await deps.ocr.recognize(regions.lower)).text);
+    const lowerRaw = (await deps.ocr.recognize(regions.lower)).text;
+    const lower = {
+      ...parseLowerText(lowerRaw),
+      year: copyrightYear(lowerRaw, digitTexts),
+      digits: digitTokens([...digitTexts, lowerRaw]),
+    };
     const hp = parseHp(topText);
     const more = lower.numbers.length
       ? (

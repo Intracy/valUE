@@ -117,8 +117,17 @@ export async function ocrRegions(
       .normalise()
       .png()
       .toBuffer();
-    const { channels } = await sharp(gray).stats();
-    const dark = (channels[0]?.mean ?? 255) < 128;
+    // Heller oder dunkler Hintergrund? Der Median trifft den Hintergrund; der
+    // Mittelwert kippt, wenn viel schwarze Schrift oder ein Rand im Ausschnitt liegt.
+    const { data } = await sharp(gray).raw().toBuffer({ resolveWithObject: true });
+    const histogram = new Uint32Array(256);
+    for (const value of data) histogram[value]! += 1;
+    let seen = 0;
+    let median = 0;
+    while (median < 255 && (seen += histogram[median]!) < data.length / 2) median += 1;
+    // Nur bei wirklich dunklem Hintergrund umkehren (Karten mit schwarzem Rahmen).
+    // Fotos unter Zimmerlicht liegen oft um 90; dort ist die Schrift trotzdem dunkler.
+    const dark = median < 70;
     // Ohne sharpen(): In dieser sharp-Version macht es ein umgekehrtes Graubild schwarz.
     return (dark ? sharp(gray).negate({ alpha: false }) : sharp(gray)).toColourspace('b-w').png().toBuffer();
   };
@@ -134,6 +143,25 @@ export async function ocrRegions(
     prepare(430, 450),
   ]);
   return { top, bottom, numberLeft, numberRight, lower };
+}
+
+/**
+ * Schwarz-Weiß mit örtlicher Schwelle: Jeder Bildpunkt wird mit seiner
+ * Umgebung verglichen statt mit einem festen Wert. Hilft bei Fotos unter
+ * Zimmerlicht, wo Schrift und Hintergrund nah beieinander liegen und ein
+ * heller Kartenrand jede feste Schwelle verschiebt.
+ */
+export async function adaptiveThreshold(region: Buffer, sigma = 10, offset = 10): Promise<Buffer> {
+  const gray = await sharp(region).greyscale().raw().toBuffer({ resolveWithObject: true });
+  const local = await sharp(region).greyscale().blur(sigma).raw().toBuffer();
+  const out = Buffer.alloc(gray.data.length);
+  for (let i = 0; i < out.length; i += 1) out[i] = gray.data[i]! < local[i]! - offset ? 0 : 255;
+  return sharp(out, { raw: { width: gray.info.width, height: gray.info.height, channels: 1 } }).png().toBuffer();
+}
+
+/** Umgekehrte Fassung eines Ausschnitts, falls die Helligkeit falsch eingeschätzt wurde. */
+export async function invert(region: Buffer): Promise<Buffer> {
+  return sharp(region).negate({ alpha: false }).png().toBuffer();
 }
 
 /** Schwarz-Weiß-Fassung eines Ausschnitts. Hilft Tesseract bei Rauschen und Verläufen. */
