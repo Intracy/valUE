@@ -1,17 +1,23 @@
 /**
  * Messung mit echten Kartenbildern in einem Katalog in voller Größe:
- *   DATABASE_URL=…/value_bench npx tsx test/real-scan-benchmark.ts <Bildordner> [Füllkarten] [Fotos je Karte] [Schwierigkeit]
+ *   DATABASE_URL=…/value_bench npx tsx test/real-scan-benchmark.ts <Ordner> [Füllkarten] [Fotos je Karte] [Schwierigkeit]
  *
- * Der Bildordner enthält TCGdex-Bilder (etwa https://assets.tcgdex.net/en/base/base1/4/high.webp), benannt wie der Pfad auf assets.tcgdex.net
- * mit "_" statt "/", etwa `en_base_base1_4_high.webp`. Jede Datei wird eine Katalogkarte.
+ * Der Ordner enthält `catalog.json` und die Bilder:
+ *   { "cards":  [{ "id": "en-base4-18", "setId": "en-base4", "setName": "Base Set 2", "language": "english",
+ *                  "name": "Venusaur", "number": "18/130", "total": 130, "hp": 100,
+ *                  "illustrator": "Mitsuhiro Arita", "cardText": "Energy Trans | Solarbeam",
+ *                  "releaseDate": "2000-02-24", "image": "img/en_base4-18_low.webp" }],
+ *     "photos": [{ "id": "en-base4-18", "file": "img/en_base4-18_high.webp" }] }
+ * Die Bilder stammen von TCGdex (etwa https://assets.tcgdex.net/en/base/base4/18/high.webp)
+ * und liegen wegen der Rechte nicht im Repository. Aus jedem Eintrag unter "photos"
+ * entstehen simulierte Handyfotos.
+ *
  * Dazu kommen Füllkarten bis zur Größe des echten Katalogs: Namen aus einer Liste
- * mit häufigen Pokémon (viele Glurak, viele Pikachu), Nummern mit Set-Größen wie in
- * echten Sets und kartenähnliche Fingerabdrücke (Mischungen der echten). So treffen
- * Name, Nummer und Bild auf ähnlich viele Doppelgänger wie im echten Katalog.
- *
- * Die Datenbank wird geleert. Ihr Name muss "bench" enthalten.
+ * mit häufigen Pokémon, Nummern mit Set-Größen wie in echten Sets und kartenähnliche
+ * Fingerabdrücke (Mischungen der echten). Die Datenbank wird geleert; ihr Name muss
+ * "bench" enthalten.
  */
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { migrate } from '../src/db/migrate.js';
@@ -22,32 +28,38 @@ import { FINGERPRINT_DIM } from '../src/scan/image.js';
 import { identifyCard } from '../src/scan/identify.js';
 import { createOcrPool } from '../src/scan/ocr.js';
 import { VisualIndex } from '../src/scan/visual-index.js';
+import { numberSort } from '../src/sync/store.js';
 import { syntheticPhoto } from './support/synthetic-photo.js';
 
+interface BenchCard {
+  id: string;
+  setId: string;
+  setName: string;
+  language: string;
+  name: string;
+  number: string;
+  total: number;
+  hp: number | null;
+  illustrator: string | null;
+  cardText: string | null;
+  releaseDate: string | null;
+  image: string | null;
+}
+
 const [dir, fillerArg, variantsArg, difficultyArg] = process.argv.slice(2);
-if (!dir) throw new Error('Bildordner fehlt.');
+if (!dir) throw new Error('Ordner fehlt.');
 const fillers = Number(fillerArg ?? 57_000);
 const variants = Number(variantsArg ?? 4);
 const difficulty = Number(difficultyArg ?? 0.5);
 const url = process.env.DATABASE_URL!;
 if (!/bench/.test(new URL(url).pathname)) throw new Error('Datenbankname muss "bench" enthalten.');
 
-/** Echte Karten: Name, Nummer, Set-Größe je TCGdex-ID. Deutsche Zwillinge nutzen das englische Bild. */
-const REAL: Record<string, { name: string; number: string; total: number; set: string }> = {
-  'en-base1-4': { name: 'Charizard', number: '4/102', total: 102, set: 'en-base1' },
-  'de-base1-4': { name: 'Glurak', number: '4/102', total: 102, set: 'de-base1' },
-  'en-base1-58': { name: 'Pikachu', number: '58/102', total: 102, set: 'en-base1' },
-  'de-base1-58': { name: 'Pikachu', number: '58/102', total: 102, set: 'de-base1' },
-  'en-swsh3-136': { name: 'Furret', number: '136/189', total: 189, set: 'en-swsh3' },
-  'de-swsh3-136': { name: 'Wiesenior', number: '136/189', total: 189, set: 'de-swsh3' },
-  'ja-SV1S-001': { name: 'サボネア', number: '001/78', total: 78, set: 'ja-SV1S' },
-  'ja-SV1S-002': { name: 'ノクタス', number: '002/78', total: 78, set: 'ja-SV1S' },
+const { cards, photos } = JSON.parse(readFileSync(join(dir, 'catalog.json'), 'utf8')) as {
+  cards: BenchCard[];
+  photos: { id: string; file: string }[];
 };
-const FILE_TO_ID = (file: string) => {
-  const [language, , set, number] = file.replace(/_(high|low)\.webp$/, '').split('_');
-  return `${language}-${set}-${number}`;
-};
-const COMMON = ['Charizard', 'Glurak', 'Pikachu', 'Furret', 'Wiesenior', 'Mewtwo', 'Eevee', 'Evoli', 'Gengar', 'リザードン', 'ピカチュウ', 'サボネア'];
+const dataUrl = (file: string) => `data:image/webp;base64,${readFileSync(join(dir, file)).toString('base64')}`;
+const COMMON = ['Charizard', 'Glurak', 'Pikachu', 'Venusaur', 'Bisaflor', 'Ivysaur', 'Mewtwo', 'Eevee', 'Gengar', 'リザードン', 'ピカチュウ'];
 
 function rng(seed: number) {
   let state = seed >>> 0 || 1;
@@ -65,21 +77,19 @@ try {
   await db.query('drop schema public cascade; create schema public;');
   await migrate(db);
 
-  // Echte Karten mit Bild als data-URL.
-  const files = readdirSync(dir).filter((file) => file.endsWith('.webp'));
-  const images = new Map(files.map((file) => [FILE_TO_ID(file), `data:image/webp;base64,${readFileSync(join(dir, file)).toString('base64')}`]));
-  const twinImage = (id: string) => images.get(id) ?? images.get(`en-${id.slice(3)}`) ?? null;
-  const realSets = [...new Set(Object.values(REAL).map((card) => card.set))];
-  for (const set of realSets) {
-    const total = Object.values(REAL).find((card) => card.set === set)!.total;
-    await db.query(`insert into sets (id, name, language, card_count) values ($1, $1, $2, $3)`, [
-      set, { en: 'english', de: 'german', ja: 'japanese' }[set.slice(0, 2)], total,
+  // Echte Karten mit allen Merkmalen.
+  const sets = new Map(cards.map((card) => [card.setId, card]));
+  for (const [id, card] of sets) {
+    await db.query(`insert into sets (id, name, language, card_count, release_date) values ($1, $2, $3, $4, $5)`, [
+      id, card.setName, card.language, card.total || 0, card.releaseDate,
     ]);
   }
-  for (const [id, card] of Object.entries(REAL)) {
+  for (const card of cards) {
     await db.query(
-      `insert into cards (id, set_id, name, number, number_sort, image_url) values ($1, $2, $3, $4, $5, $6)`,
-      [id, card.set, card.name, card.number, Number(card.number.split('/')[0]), twinImage(id)],
+      `insert into cards (id, set_id, name, number, number_sort, image_url, hp, illustrator, card_text)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [card.id, card.setId, card.name, card.number, numberSort(card.number), card.image ? dataUrl(card.image) : null,
+       card.hp, card.illustrator, card.cardText],
     );
   }
   await computeMissingFingerprints(db);
@@ -92,9 +102,10 @@ try {
   for (let i = 0; i < 450; i += 1) {
     const id = `${['en', 'de', 'ja'][i % 3]}-fill${i}`;
     setIds.push(id);
-    await db.query(`insert into sets (id, name, language, card_count) values ($1, $1, 'english', $2)`, [
-      id, totals[i % totals.length],
-    ]);
+    await db.query(
+      `insert into sets (id, name, language, card_count, release_date) values ($1, $1, 'english', $2, $3)`,
+      [id, totals[i % totals.length], `${1999 + (i % 27)}-06-01`],
+    );
   }
   const syllables = ['ka', 'ri', 'zo', 'mon', 'pi', 'lu', 'tra', 'gor', 'nix', 'bel', 'dra', 'ex', 'vo', 'sa', 'lith', 'quor'];
   const batch = 2_000;
@@ -108,7 +119,6 @@ try {
         random() < 0.02
           ? COMMON[Math.floor(random() * COMMON.length)]!
           : Array.from({ length: 2 + Math.floor(random() * 3) }, () => syllables[Math.floor(random() * syllables.length)]).join('');
-      // Kartenähnlicher Fingerabdruck: Mischung zweier echter mit Rauschen.
       const a = realVectors[Math.floor(random() * realVectors.length)]!;
       const b = realVectors[Math.floor(random() * realVectors.length)]!;
       const mix = random();
@@ -136,25 +146,24 @@ try {
   const index = new VisualIndex(db, () => version.get());
   await index.ensureFresh();
 
-  const testCards = files.filter((file) => file.endsWith('_high.webp')).map(FILE_TO_ID);
   const stats = { total: 0, top1: 0, listed: 0, match: 0, unsure: 0, none: 0, wrongMatch: 0, ms: 0 };
-  console.log(`Katalog: ${size} Karten. Fotos: ${testCards.length} Karten × ${variants}, Schwierigkeit ${difficulty}`);
-  for (const id of testCards) {
+  console.log(`Katalog: ${size} Karten, davon ${cards.length} echte. Fotos: ${photos.length} Karten × ${variants}, Schwierigkeit ${difficulty}`);
+  for (const photo of photos) {
     for (let v = 0; v < variants; v += 1) {
-      const photo = await syntheticPhoto(images.get(id)!, { seed: 1000 + stats.total, difficulty });
-      const result = await identifyCard(photo, { db, index, ocr });
+      const image = await syntheticPhoto(dataUrl(photo.file), { seed: 1000 + stats.total, difficulty });
+      const result = await identifyCard(image, { db, index, ocr });
       stats.total += 1;
       stats.ms += result.durationMs;
       stats[result.outcome] += 1;
-      const rank = result.candidates.findIndex((candidate) => candidate.cardId === id);
+      const rank = result.candidates.findIndex((candidate) => candidate.cardId === photo.id);
       if (rank === 0) stats.top1 += 1;
       if (rank >= 0) stats.listed += 1;
       if (result.outcome === 'match' && rank !== 0) stats.wrongMatch += 1;
       const top = result.candidates
         .slice(0, 3)
-        .map((c) => `${c.cardId} ${c.score.toFixed(2)} (B${c.visual.toFixed(2)} N${c.name.toFixed(2)} Nr${c.number})`)
+        .map((c) => `${c.cardId} ${c.score.toFixed(2)} (B${c.visual.toFixed(2)} N${c.name.toFixed(2)} Nr${c.number}${c.details === undefined ? '' : ` M${c.details.toFixed(2)}`})`)
         .join(' | ');
-      console.log(`${id} #${v + 1}: ${result.outcome}, Platz ${rank + 1 || '–'}, Name "${result.ocrName}", Nr ${result.ocrNumber}, ${result.durationMs} ms\n    ${top}`);
+      console.log(`${photo.id} #${v + 1}: ${result.outcome}, Platz ${rank + 1 || '–'}, Nr ${result.ocrNumber}, ${result.durationMs} ms\n    ${top}`);
     }
   }
   const pct = (n: number) => `${((n / stats.total) * 100).toFixed(0)} %`;

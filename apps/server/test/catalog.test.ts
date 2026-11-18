@@ -64,6 +64,25 @@ describe('Katalog von TCGdex', () => {
     expect(japanese.rows[0]).toEqual({ name: 'サボネア', number: '001/78', number_sort: 1 });
   });
 
+  it('speichert Lebenspunkte, Illustrator und Attacken als Merkmale für den Scanner', async () => {
+    const { client } = fakeTcgdex();
+    await runCatalogSync(db, client);
+    const rows = await db.query(`select id, hp, illustrator, card_text from cards where id in ('en-base1-4', 'de-base1-4') order by id`);
+    expect(rows.rows).toEqual([
+      { id: 'de-base1-4', hp: 120, illustrator: 'Mitsuhiro Arita', card_text: 'Energie verbrennen | Feuerwirbel' },
+      { id: 'en-base1-4', hp: 120, illustrator: 'Mitsuhiro Arita', card_text: 'Energy Burn | Fire Spin' },
+    ]);
+  });
+
+  it('lässt TCG Pocket aus, auch wenn es früher geladen wurde', async () => {
+    await db.query(`insert into sets (id, name, series, language) values ('en-A1', 'Genetic Apex', 'Pokémon TCG Pocket', 'english')`);
+    await db.query(`insert into cards (id, set_id, name) values ('en-A1-003', 'en-A1', 'Venusaur')`);
+    const { client } = fakeTcgdex();
+    await runCatalogSync(db, client);
+    expect((await db.query(`select count(*)::int as n from cards where set_id = 'en-A1'`)).rows[0].n).toBe(0);
+    expect((await db.query(`select count(*)::int as n from sets where id = 'en-A1'`)).rows[0].n).toBe(0);
+  });
+
   it('gibt deutschen Karten Bild, Rarität und Element der englischen Fassung', async () => {
     const { client } = fakeTcgdex();
     await runCatalogSync(db, client);
@@ -90,7 +109,8 @@ describe('Katalog von TCGdex', () => {
     const second = fakeTcgdex();
     const result = await runCatalogSync(db, second.client);
     expect(result.cardsSynced).toBe(0);
-    expect(second.calls).toEqual(['en/sets', 'de/sets', 'ja/sets']);
+    // Nur das Pocket-Set wird erneut angesehen (und wieder ausgelassen).
+    expect(second.calls).toEqual(['en/sets', 'en/sets/A1', 'de/sets', 'ja/sets']);
   });
 
   it('entfernt Demo-Sets samt Karten', async () => {

@@ -3,6 +3,7 @@ import type { SourceCard } from '../sources/price-source.js';
 import {
   catalogId,
   CATALOG_LANGUAGES,
+  isDigitalOnly,
   LANGUAGE_NAMES,
   mapTcgdexCard,
   mapTcgdexSet,
@@ -79,6 +80,8 @@ export async function runCatalogSync(db: Db, client: TcgdexClient, options: Cata
     result.runId = run.rows[0]!.id;
 
     try {
+      // Pocket-Sets aus früheren Abgleichen (Serie "Pokémon TCG Pocket" bzw. "…-Pocket").
+      await db.query(`delete from sets where series ilike '%pocket%'`);
       for (const language of languages) {
         const briefs = await client.listSets(language);
         const known = new Map(
@@ -109,6 +112,11 @@ export async function runCatalogSync(db: Db, client: TcgdexClient, options: Cata
             continue;
           }
           if (set.cards.length === 0) continue;
+          if (isDigitalOnly(set)) {
+            // Früher geladene Pocket-Sets samt Karten entfernen.
+            await db.query('delete from sets where id = $1', [catalogId(language, set.id)]);
+            continue;
+          }
 
           const official = setOfficialCount(set);
           const cards = await mapLimit(set.cards, concurrency, async (briefCard) => {

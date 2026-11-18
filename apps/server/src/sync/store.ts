@@ -192,10 +192,11 @@ export async function bumpCatalogVersion(db: Queryable, version: string): Promis
 export async function upsertCatalogCards(db: Queryable, cards: SourceCard[]): Promise<void> {
   if (cards.length === 0) return;
   await db.query(
-    `insert into cards (id, set_id, name, number, number_sort, rarity, image_url, element, updated_at)
-     select id, set_id, name, number, number_sort, rarity, image_url, element, now()
-     from unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::int[], $6::text[], $7::text[], $8::text[])
-       as t (id, set_id, name, number, number_sort, rarity, image_url, element)
+    `insert into cards (id, set_id, name, number, number_sort, rarity, image_url, element, hp, illustrator, card_text, updated_at)
+     select id, set_id, name, number, number_sort, rarity, image_url, element, hp, illustrator, card_text, now()
+     from unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::int[], $6::text[], $7::text[], $8::text[],
+                 $9::int[], $10::text[], $11::text[])
+       as t (id, set_id, name, number, number_sort, rarity, image_url, element, hp, illustrator, card_text)
      on conflict (id) do update set
        set_id = excluded.set_id,
        name = excluded.name,
@@ -204,6 +205,9 @@ export async function upsertCatalogCards(db: Queryable, cards: SourceCard[]): Pr
        rarity = coalesce(excluded.rarity, cards.rarity),
        image_url = coalesce(excluded.image_url, cards.image_url),
        element = coalesce(excluded.element, cards.element),
+       hp = coalesce(excluded.hp, cards.hp),
+       illustrator = coalesce(excluded.illustrator, cards.illustrator),
+       card_text = coalesce(excluded.card_text, cards.card_text),
        updated_at = now()`,
     [
       cards.map((card) => card.id),
@@ -214,6 +218,9 @@ export async function upsertCatalogCards(db: Queryable, cards: SourceCard[]): Pr
       cards.map((card) => card.rarity),
       cards.map((card) => card.imageUrl),
       cards.map((card) => card.element ?? null),
+      cards.map((card) => card.hp ?? null),
+      cards.map((card) => card.illustrator ?? null),
+      cards.map((card) => card.cardText ?? null),
     ],
   );
   const printings = cards.flatMap((card) => card.printings.map((printing) => ({ cardId: card.id, printing: printing.printing })));

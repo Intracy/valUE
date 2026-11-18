@@ -1,6 +1,16 @@
 import type { Db } from '../db/pool.js';
 import { binarize, fingerprint, ocrRegions } from './image.js';
-import { foldJapanese, japaneseSimilarity, parseCardName, parseCardNumber, parseJapaneseName, type OcrEngine } from './ocr.js';
+import {
+  foldJapanese,
+  japaneseSimilarity,
+  parseCardName,
+  parseCardNumber,
+  parseHp,
+  parseJapaneseName,
+  parseLowerText,
+  type LowerFacts,
+  type OcrEngine,
+} from './ocr.js';
 import type { VisualIndex } from './visual-index.js';
 
 /**
@@ -22,6 +32,8 @@ export interface ScoredCandidate {
   visual: number;
   name: number;
   number: number;
+  /** Übereinstimmung der Merkmale aus der zweiten Stufe (0 bis 1), falls sie lief. */
+  details?: number;
 }
 
 export interface Identification {
@@ -56,7 +68,51 @@ export const SCORING = {
   /** Darunter zeigt der Scanner keine Vorschläge, sondern "nicht erkannt". */
   minScore: 0.22,
   maxCandidates: 5,
+  /**
+   * Zweite Stufe: Anteil der Kartenmerkmale (Nummer und Set-Größe aus dem
+   * Volltext, Copyright-Jahr, Attacken, Lebenspunkte, Illustrator) an der Bewertung.
+   */
+  detailsShare: 0.4,
+  details: { number: 0.35, year: 0.25, text: 0.2, hp: 0.1, illustrator: 0.1 },
 } as const;
+
+/** Was die zweite Stufe über eine Kandidatenkarte weiß. */
+export interface CandidateDetails {
+  numberSort: number | null;
+  total: number | null;
+  releaseYear: number | null;
+  hp: number | null;
+  /** Anteil der Attacken- und Fähigkeitsnamen, die im gelesenen Text vorkommen; null ohne Angaben. */
+  textMatch: number | null;
+  /** word_similarity des Illustrators zum gelesenen Text; null ohne Angabe. */
+  illustratorSimilarity: number | null;
+}
+
+/**
+ * Bewertung der Kartenmerkmale aus der zweiten Stufe, 0 bis 1, oder null, wenn
+ * nichts davon gelesen wurde. Zählt nur, was auf dem Foto lesbar war.
+ */
+export function scoreDetails(card: CandidateDetails, read: { lower: LowerFacts; hp: number | null }): number | null {
+  const { details: weights } = SCORING;
+  const parts: [number, number][] = [];
+  const { lower } = read;
+  if (lower.numbers.length > 0 || lower.totals.length > 0) {
+    const exact = lower.numbers.some((n) => n.number === card.numberSort && n.total === card.total);
+    const totalOnly = card.total !== null && lower.totals.includes(card.total);
+    parts.push([weights.number, exact ? 1 : totalOnly ? 0.45 : 0]);
+  }
+  if (lower.year !== null && card.releaseYear !== null) {
+    const diff = Math.abs(lower.year - card.releaseYear);
+    parts.push([weights.year, diff === 0 ? 1 : diff === 1 ? 0.5 : 0]);
+  }
+  if (lower.text.length >= 20 && card.textMatch !== null) parts.push([weights.text, card.textMatch]);
+  if (read.hp !== null && card.hp !== null) parts.push([weights.hp, read.hp === card.hp ? 1 : 0]);
+  if (lower.text.length >= 20 && card.illustratorSimilarity !== null) {
+    parts.push([weights.illustrator, card.illustratorSimilarity >= 0.6 ? 1 : card.illustratorSimilarity * 0.5]);
+  }
+  const total = parts.reduce((sum, [weight]) => sum + weight, 0);
+  return total > 0 ? parts.reduce((sum, [weight, value]) => sum + weight * value, 0) / total : null;
+}
 
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 
@@ -126,9 +182,12 @@ export async function identifyCard(
     }
     return null;
   };
+  let topText = '';
   const readName = async () => {
     for (const variant of [Promise.resolve(regions.top), binarize(regions.top, 120)]) {
-      const parsed = parseCardName((await deps.ocr.recognize(await variant)).text);
+      const text = (await deps.ocr.recognize(await variant)).text;
+      topText += `\n${text}`;
+      const parsed = parseCardName(text);
       if (parsed) return parsed;
     }
     return null;
@@ -158,7 +217,7 @@ export async function identifyCard(
           `select id from cards
            where word_similarity(lower(name), $1) >= 0.4
            order by word_similarity(lower(name), $1) desc, id
-           limit 40`,
+           limit 200`,
           [nameQuery],
         )
       : Promise.resolve({ rows: [] as { id: string }[] }),
@@ -206,25 +265,49 @@ export async function identifyCard(
     return { outcome: 'none', candidates: [], ocrName: shownName, ocrNumber: null, durationMs: Date.now() - started };
   }
 
-  const facts = await deps.db.query<{ id: string; name: string; number_sort: number | null; number: string | null; card_count: number; name_sim: number }>(
-    `select c.id, c.name, c.number_sort, c.number, s.card_count,
-            case when $2 = '' then 0 else word_similarity(lower(c.name), $2) end as name_sim
-     from cards c join sets s on s.id = c.set_id
-     where c.id = any($1::text[])`,
-    [ids, nameQuery],
-  );
+  type FactRow = {
+    id: string;
+    name: string;
+    number_sort: number | null;
+    number: string | null;
+    card_count: number;
+    name_sim: number;
+    hp: number | null;
+    release_year: number | null;
+    text_match: number | null;
+    illustrator_sim: number | null;
+  };
+  /** Merkmale der Kandidaten. Mit `lowerText` auch Attacken und Illustrator im Vergleich zum gelesenen Text. */
+  const loadFacts = (candidateIds: string[], lowerText: string) =>
+    deps.db.query<FactRow>(
+      `select c.id, c.name, c.number_sort, c.number, s.card_count, c.hp,
+              extract(year from s.release_date)::int as release_year,
+              case when $2 = '' then 0 else word_similarity(lower(c.name), $2) end as name_sim,
+              case when $3 = '' or c.card_text is null then null else
+                (select avg(case when word_similarity(lower(t), $3) >= 0.6 then 1.0 else 0.0 end)::float
+                 from unnest(string_to_array(c.card_text, ' | ')) t) end as text_match,
+              case when $3 = '' or c.illustrator is null then null
+                   else word_similarity(lower(c.illustrator), $3) end as illustrator_sim
+       from cards c join sets s on s.id = c.set_id
+       where c.id = any($1::text[])`,
+      [candidateIds, nameQuery, lowerText],
+    );
 
   const visual = new Map(visualTop.map((hit) => [hit.cardId, hit.similarity]));
-  const missing = ids.filter((id) => !visual.has(id));
-  for (const [id, similarity] of deps.index.similarityTo(vector, missing)) visual.set(id, similarity);
-
-  const scored = facts.rows.map((row) => {
+  const ensureVisual = (candidateIds: string[]) => {
+    const missing = candidateIds.filter((id) => !visual.has(id));
+    for (const [id, similarity] of deps.index.similarityTo(vector, missing)) visual.set(id, similarity);
+  };
+  const totalOf = (row: FactRow) => {
     const printedTotal = /\/\s*(\d+)/.exec(row.number ?? '')?.[1];
-    return scoreCandidate(
+    return printedTotal ? Number(printedTotal) : row.card_count;
+  };
+  const scoreRow = (row: FactRow) =>
+    scoreCandidate(
       {
         cardId: row.id,
         numberSort: row.number_sort,
-        total: printedTotal ? Number(printedTotal) : row.card_count,
+        total: totalOf(row),
         nameSimilarity:
           japaneseName && row.id.startsWith('ja-')
             ? Math.max(Number(row.name_sim), japaneseSimilarity(japaneseName, row.name))
@@ -233,9 +316,53 @@ export async function identifyCard(
       },
       { number, hasName: nameQuery.length > 0 || japaneseName !== null },
     );
-  });
 
-  const { outcome, candidates } = decide(scored);
+  // Stufe 1: Name, Nummer, Bild.
+  ensureVisual(ids);
+  let scored = (await loadFacts(ids, '')).rows.map(scoreRow);
+  let decision = decide(scored);
+
+  // Stufe 2, nur wenn Stufe 1 nicht eindeutig ist: Volltext der unteren Hälfte
+  // lesen und Nummer, Set-Größe, Copyright-Jahr, Attacken, Lebenspunkte und
+  // Illustrator jeder Kandidatenkarte vergleichen. Trennt etwa Neuauflagen mit
+  // gleichem Bild und gleichem Namen.
+  if (decision.outcome !== 'match') {
+    const lower = parseLowerText((await deps.ocr.recognize(regions.lower)).text);
+    const hp = parseHp(topText);
+    const more = lower.numbers.length
+      ? (
+          await deps.db.query<{ id: string }>(
+            `select c.id from cards c join sets s on s.id = c.set_id
+             join unnest($1::int[], $2::int[]) as r (num, total)
+               on c.number_sort = r.num and (s.card_count = r.total or c.number like '%/' || r.total::text)
+             limit 80`,
+            [lower.numbers.map((n) => n.number), lower.numbers.map((n) => n.total)],
+          )
+        ).rows.map((row) => row.id)
+      : [];
+    const allIds = [...new Set([...ids, ...more])];
+    ensureVisual(allIds);
+    const rows = (await loadFacts(allIds, lower.text)).rows;
+    scored = rows.map((row) => {
+      const base = scoreRow(row);
+      const details = scoreDetails(
+        {
+          numberSort: row.number_sort,
+          total: totalOf(row),
+          releaseYear: row.release_year,
+          hp: row.hp,
+          textMatch: row.text_match === null ? null : Number(row.text_match),
+          illustratorSimilarity: row.illustrator_sim === null ? null : Number(row.illustrator_sim),
+        },
+        { lower, hp },
+      );
+      if (details === null) return base;
+      return { ...base, details, score: (1 - SCORING.detailsShare) * base.score + SCORING.detailsShare * details };
+    });
+    decision = decide(scored);
+  }
+
+  const { outcome, candidates } = decision;
   return {
     outcome,
     candidates,

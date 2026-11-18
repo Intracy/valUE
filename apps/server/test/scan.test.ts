@@ -4,9 +4,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { seedDemo } from '../src/db/seed-demo.js';
 import { buildApp } from '../src/http/app.js';
 import { computeMissingFingerprints } from '../src/scan/fingerprint-job.js';
-import { decide, scoreCandidate, SCORING } from '../src/scan/identify.js';
+import { decide, scoreCandidate, scoreDetails, SCORING } from '../src/scan/identify.js';
 import { createOcrPool } from '../src/scan/ocr.js';
-import { japaneseSimilarity, parseCardName, parseCardNumber, parseJapaneseName } from '../src/scan/ocr.js';
+import { japaneseSimilarity, parseCardName, parseCardNumber, parseHp, parseJapaneseName, parseLowerText } from '../src/scan/ocr.js';
 import { resetData, testDb } from './helpers.js';
 import { syntheticPhoto } from './support/synthetic-photo.js';
 
@@ -35,6 +35,21 @@ describe('Lesen von Name und Nummer', () => {
     );
   });
 
+  it('liest Lebenspunkte in mehreren Schreibweisen', () => {
+    expect(parseHp('STAGE 2 Evolves from Ivysaur Venusaur 100 HP')).toBe(100);
+    expect(parseHp('Venusaur ex HP340')).toBe(340);
+    expect(parseHp('PHASE2 Bisaflor KP 140')).toBe(140);
+    expect(parseHp('Venusaur 1O5 HP')).toBeNull();
+  });
+
+  it('findet Nummer, Set-Größe und Copyright-Jahr im Text der unteren Hälfte', () => {
+    // Nachgestellte Lesung von Bisaflor aus Base Set 2 (18/130): Nummer halb lesbar.
+    const lower = parseLowerText('Solarbeam 60\nweakness resistance retreat cost\nIllus. Mitsuhiro Arita © 1995, 96, 98, 99 Nintendo © 1999-2000 Wizards. 1B/130 *');
+    expect(lower.totals).toContain(130);
+    expect(lower.year).toBe(2000);
+    expect(lower.text).toContain('solarbeam');
+  });
+
   it('liest japanische Namen und vergleicht sie ohne Dakuten', () => {
     // Echte Lesung der Karte サボネア (SV1S 001): ボ als ポ gelesen, eine Zeile Störzeichen.
     const read = parseJapaneseName('洋をサポネア                      。 w60⑳\n|  語る時問本ヘーージジー |\n');
@@ -45,6 +60,23 @@ describe('Lesen von Name und Nummer', () => {
 });
 
 describe('Bewertung der Kandidaten', () => {
+  it('trennt Neuauflagen mit gleichem Bild über Set-Größe und Copyright-Jahr', () => {
+    const lower = parseLowerText('Energy Trans Solarbeam 60 Illus. Mitsuhiro Arita © 1999-2000 Wizards. 1B/130');
+    const card = (numberSort: number, total: number, releaseYear: number) => ({
+      numberSort, total, releaseYear, hp: 100, textMatch: 1, illustratorSimilarity: 1,
+    });
+    const baseSet2 = scoreDetails(card(18, 130, 2000), { lower, hp: 100 })!;
+    const baseSet = scoreDetails(card(15, 102, 1999), { lower, hp: 100 })!;
+    const legendary = scoreDetails(card(18, 110, 2002), { lower, hp: 100 })!;
+    expect(baseSet2).toBeGreaterThan(baseSet + 0.2);
+    expect(baseSet2).toBeGreaterThan(legendary + 0.2);
+  });
+
+  it('wertet Merkmale nicht, die auf dem Foto nicht lesbar waren', () => {
+    const lower = parseLowerText('');
+    expect(scoreDetails({ numberSort: 1, total: 1, releaseYear: 2000, hp: 100, textMatch: 1, illustratorSimilarity: 1 }, { lower, hp: null })).toBeNull();
+  });
+
   const facts = (cardId: string, visual: number, name: number, numberSort: number | null, total: number | null) => ({
     cardId, visualSimilarity: visual, nameSimilarity: name, numberSort, total,
   });

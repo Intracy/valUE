@@ -35,6 +35,10 @@ Auf der NAS erledigt das der Dienst `catalog` (siehe deploy/README.md).
   über Name und Nummer.
 - **Rarität und Element** deutscher Karten kommen von der englischen Fassung, damit
   die App sie einheitlich einordnet.
+- **Merkmale für den Scanner:** Lebenspunkte, Illustrator und die Namen der Attacken
+  und Fähigkeiten (Spalten `hp`, `illustrator`, `card_text`), in der Sprache der Karte.
+- **TCG Pocket** (Sets A1, A3, B1a, P-A …) bleibt draußen: ein reines Digitalspiel,
+  dessen Karten es nicht gedruckt gibt.
 - **Preise:** Pokemon Price Tracker nennt je Karte die TCGdex-ID
   (`externalCatalogId`). Darüber landet der Preis auf der englischen und der
   deutschen Karte. Es entstehen keine eigenen Karten aus PPT.
@@ -50,6 +54,18 @@ Drei Signale, gewichtet zusammengeführt (`apps/server/src/scan/identify.ts`):
 | Kartennummer | Texterkennung der unteren Zeile, etwa „9/24“; die Zahl hinter dem Schrägstrich grenzt das Set ein | 25 % |
 
 Keines reicht allein: Namen wiederholen sich über Sets, Nummern sowieso, und die Bildähnlichkeit verwechselt Karten mit ähnlichem Aufbau. In den Demo-Daten heißt „Sternstaub“ in allen drei Sets gleich; Nummer und Bild trennen sie.
+
+**Zweite Stufe:** Ist das Ergebnis nach Name, Nummer und Bild nicht eindeutig, liest der Scanner den Volltext der unteren Kartenhälfte und vergleicht für jeden Kandidaten weitere Merkmale. Sie machen dann 40 % der Bewertung aus; was auf dem Foto nicht lesbar war, zählt nicht.
+
+| Merkmal | Woher auf dem Foto | Gewicht in der zweiten Stufe |
+| --- | --- | ---: |
+| Nummer und Set-Größe, auch nur „…/130“ | unterer Volltext | 35 % |
+| Copyright-Jahr („© 1999-2000 Wizards“) gegen das Erscheinungsjahr des Sets | unterer Volltext | 25 % |
+| Namen der Attacken und Fähigkeiten | unterer Volltext | 20 % |
+| Lebenspunkte („100 HP“, „KP 140“) | Namensleiste | 10 % |
+| Illustrator | unterer Volltext | 10 % |
+
+Das trennt vor allem Neuauflagen: Bisaflor aus Base Set (15/102, 1999), Base Set 2 (18/130, 2000) und Legendary Collection (18/110, 2002) haben dasselbe Bild, denselben Namen, dieselben Attacken und denselben Illustrator. Nur Nummer, Set-Größe und Copyright-Jahr unterscheiden sie. Die Namenssuche gibt außerdem bis zu 200 statt 40 Treffer weiter; vorher fiel bei häufigen Namen (60 englische Karten heißen „Venusaur“) die richtige Karte oft schon vor der Bewertung heraus.
 
 **Texterkennung im Detail:**
 
@@ -91,6 +107,17 @@ Messung mit `test/real-scan-benchmark.ts`: drei echte Karten (Glurak/Charizard a
 
 Die Nummer moderner und japanischer Karten wurde in allen Fotos gelesen. Die winzige Nummer der Karten von 1999 („4/102“ unten rechts) in keinem; dort tragen Name und Bild die Erkennung, und bei vielen Karten gleichen Namens fragt der Scanner mit einer Auswahl nach. Die Bilder der Messung stehen wegen der Rechte nicht im Repository; die Datei beschreibt, wie man sie von TCGdex holt.
 
+### Alle Varianten von Bisaflor
+
+Messung mit `test/real-scan-benchmark.ts`: alle 109 gedruckten Karten namens Venusaur, Bisaflor und フシギバナ von TCGdex mit ihren echten Merkmalen (85 mit Bild), dazu 57.000 Füllkarten. Je vier simulierte Fotos (Schwierigkeit 0,5) von Venusaur aus Base Set 2, Venusaur ex aus 151 und Bisaflor aus Dunkle Erkundungen (deutsch).
+
+| | Richtig auf Platz 1 | Unter den Vorschlägen | Eindeutig / unsicher | Eindeutig, aber falsch |
+| --- | ---: | ---: | --- | ---: |
+| nur Name, Nummer, Bild | 58 % | 67 % | 58 % / 42 % | 1 |
+| mit zweiter Stufe | 100 % | 100 % | 75 % / 25 % | 0 |
+
+Base Set 2 wurde in zwei von vier Fotos eindeutig erkannt; in den beiden anderen stand es auf Platz 1, knapp vor Legendary Collection mit gleichem Bild, und der Scanner fragte nach. Ein Scan dauert mit der zweiten Stufe im Mittel 2,4 statt 1,8 Sekunden.
+
 ## Grenzen
 
 Diese Zahlen sind **keine Aussage über echte Fotos echter Karten.** Sie gelten für 54 erfundene Demo-Karten mit klarer Schrift und simulierten Störungen. Nicht abgedeckt:
@@ -108,4 +135,5 @@ Diese Zahlen sind **keine Aussage über echte Fotos echter Karten.** Sie gelten 
 1. **Echter Testsatz:** 1.000 eigene Fotos echter Karten unter Alltagsbedingungen, Messung mit derselben Auswertung. Erst danach sind Aussagen über die Trefferquote belastbar.
 2. **Gelerntes Bildmodell:** Ein Modell wie CLIP statt des einfachen Fingerabdrucks, wie im Konzept vorgesehen. Die Schnittstelle (`fingerprint()` in `src/scan/image.ts`) bleibt gleich. In der Bauumgebung war kein Modell herunterladbar.
 3. **Erkennung auf dem Gerät:** Texterkennung über Apple Vision und ML Kit, Bildvergleich auf dem Gerät. Spart Serverlast und funktioniert offline; braucht einen Entwicklungs-Build statt Expo Go.
-4. **Rückmeldungen nutzen:** Die Tabelle `scans` zeigt, wo der erste Vorschlag falsch war. Daraus Gewichte und Schwellen nachstellen.
+4. **Set-Symbol erkennen:** TCGdex liefert die Symbole aller Sets als Bild. Ein Vergleich mit dem Symbol am Artwork (Base Set 2: eine „2“ unten rechts) trennt Neuauflagen auch dann, wenn Nummer und Copyright unleserlich sind.
+5. **Rückmeldungen nutzen:** Die Tabelle `scans` zeigt, wo der erste Vorschlag falsch war. Daraus Gewichte und Schwellen nachstellen.
