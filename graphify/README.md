@@ -8,7 +8,7 @@ Wissensgraph des Repositorys, erzeugt mit [Graphify](https://github.com/Graphify
 | `GRAPH_REPORT.md` | Zusammenfassung: zentrale Knoten, auffällige Verbindungen, Bereiche, Fragen |
 | `graph.json` | Vollständige Graphdaten, abfragbar mit `graphify query`, `graphify path`, `graphify explain` |
 
-**Stand:** Commit `0465dfa` (17.11.2026). 1.037 Knoten, 2.650 Verbindungen, 71 Bereiche.
+**Stand:** Commit `c6c92ab` (18.11.2026). 1.052 Knoten, 2.689 Verbindungen, 73 Bereiche.
 
 **Grundlage:**
 

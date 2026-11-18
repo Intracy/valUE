@@ -165,6 +165,48 @@ export function parseHp(text: string): number | null {
   return hp >= 10 && hp <= 400 && hp % 10 === 0 ? hp : null;
 }
 
+/**
+ * Jüngstes Jahr im Copyright. Auf alten Karten steht immer "©1995 Nintendo"; ist
+ * nur 1995 lesbar, fehlt das entscheidende Jahr, und es gibt keine Angabe.
+ * `digitTexts` sind Lesungen der Ziffernerkennung, in denen Jahre ohne Trennzeichen
+ * an anderen Ziffern kleben ("12292000" aus "1999-2000").
+ */
+export function copyrightYear(raw: string, digitTexts: string[] = []): number | null {
+  const years = [
+    ...[...raw.matchAll(/(?<!\d)(199\d|20[0-4]\d)(?!\d)/g)].map((match) => Number(match[1])),
+    ...digitTexts.flatMap((text) => [...text.matchAll(/(199[6-9]|20[0-4]\d)/g)].map((match) => Number(match[1]))),
+  ];
+  const latest = years.length > 0 ? Math.max(...years) : null;
+  return latest !== null && latest > 1996 ? latest : null;
+}
+
+/**
+ * Ziffernfolgen aus gelesenen Texten, für den Abgleich mit der Nummer einer
+ * Kandidatenkarte. Tesseract liest den Schrägstrich oft als Ziffer ("18/130"
+ * → "11130" oder "187130"); deshalb zählt, ob eine Folge mit der Set-Größe der Karte endet.
+ * Jahreszahlen aus dem Copyright fallen vorher heraus.
+ */
+export function digitTokens(texts: string[]): string[] {
+  return texts
+    .join(' ')
+    .split(/\s+/)
+    .map((token) => token.replace(/(?:19[89]\d|20[0-4]\d)/g, ' ').replace(/[^\d ]/g, ''))
+    .flatMap((token) => token.split(' '))
+    .filter((token) => token.length >= 2);
+}
+
+/** Stimmt die Nummer einer Karte mit einer der Ziffernfolgen überein? 1 = Nummer und Set-Größe, 0,45 = nur Set-Größe. */
+export function matchPrintedNumber(tokens: string[], numberSort: number | null, total: number | null): number {
+  if (!total || total < 10) return 0;
+  const totalText = String(total);
+  // Der Schrägstrich fehlt oder ist als Ziffer gelesen: "18130" oder "187130" für 18/130.
+  const exact = numberSort !== null ? new RegExp(`${numberSort}\\d?${totalText}$`) : null;
+  if (exact && tokens.some((token) => exact.test(token))) return 1;
+  // Dreistellige Set-Größen sind selten Zufall; zweistellige nur am Ende einer Folge von mindestens vier Ziffern.
+  const hit = tokens.some((token) => token.endsWith(totalText) && (totalText.length >= 3 ? token.length >= 4 : token.length >= 4));
+  return hit ? 0.45 : 0;
+}
+
 export interface LowerFacts {
   /** Nummer mit Gesamtzahl, etwa 18/130. Mehrere, wenn mehrere Stellen danach aussehen. */
   numbers: { number: number; total: number }[];
@@ -174,6 +216,8 @@ export interface LowerFacts {
   year: number | null;
   /** Der gelesene Text, klein geschrieben, für den Vergleich mit Attacken und Illustrator. */
   text: string;
+  /** Ziffernfolgen aus diesem Text und den Nummern-Ausschnitten (siehe `digitTokens`). */
+  digits?: string[];
 }
 
 /**
@@ -194,8 +238,7 @@ export function parseLowerText(raw: string): LowerFacts {
     }
   }
   for (const match of raw.matchAll(/[/\\](\d{2,3})(?!\d)/g)) totals.add(Number(match[1]));
-  const years = [...raw.matchAll(/(?<!\d)(199\d|20[0-4]\d)(?!\d)/g)].map((match) => Number(match[1]));
-  return { numbers, totals: [...totals], year: years.length > 0 ? Math.max(...years) : null, text: text.toLowerCase() };
+  return { numbers, totals: [...totals], year: copyrightYear(raw), text: text.toLowerCase() };
 }
 
 /** Japanische Schriftzeichen: Hiragana, Katakana (mit Langvokal ー), Kanji. */

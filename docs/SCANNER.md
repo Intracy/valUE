@@ -67,9 +67,14 @@ Keines reicht allein: Namen wiederholen sich über Sets, Nummern sowieso, und di
 
 Das trennt vor allem Neuauflagen: Bisaflor aus Base Set (15/102, 1999), Base Set 2 (18/130, 2000) und Legendary Collection (18/110, 2002) haben dasselbe Bild, denselben Namen, dieselben Attacken und denselben Illustrator. Nur Nummer, Set-Größe und Copyright-Jahr unterscheiden sie. Die Namenssuche gibt außerdem bis zu 200 statt 40 Treffer weiter; vorher fiel bei häufigen Namen (60 englische Karten heißen „Venusaur“) die richtige Karte oft schon vor der Bewertung heraus.
 
+**Karte im Foto finden:** Die Leseausschnitte setzen voraus, dass die Karte das Bild füllt. Liegt sie mit Hand, Tisch oder Hülle im Bild, sucht der Scanner sie (`src/scan/frame.ts`), schneidet sie aus und erkennt erneut; das bessere Ergebnis zählt. Gesucht wird über Kantenprofile: Spalten und Zeilen mit vielen geraden Kanten bilden den Kartenrahmen; gewählt wird die größte Kombination mit Kartenproportionen (63 × 88 mm), mit 2,5 % Zugabe, damit Nummer und Copyright unter dem inneren Rahmen nicht abgeschnitten werden.
+
 **Texterkennung im Detail:**
 
 - **Name:** Gesucht wird mit allen gelesenen Zeilen der Namensleiste, nicht nur der längsten. Auf echten Karten stehen dort auch Stufe, „Entwickelt sich aus …“ und Störzeichen; `word_similarity` findet den Namen darin.
+- **Helligkeit:** Ausschnitte werden nur umgekehrt, wenn ihr Hintergrund wirklich dunkel ist (Median unter 70). Fotos unter Zimmerlicht liegen um 90; der Mittelwert kippte dort und machte die Schrift weiß auf grau.
+- **Örtliche Schwelle:** Für die Nummer zusätzlich eine Schwarz-Weiß-Fassung, die jeden Bildpunkt mit seiner Umgebung vergleicht. Eine feste Schwelle scheitert, sobald ein heller Kartenrand im Ausschnitt liegt.
+- **Nummer gegen Kandidaten prüfen:** Tesseract liest den Schrägstrich oft als Ziffer („18/130“ → „187130“). Die zweite Stufe prüft deshalb für jede Kandidatenkarte, ob eine gelesene Ziffernfolge auf ihre Nummer und Set-Größe endet (Copyright-Jahre vorher entfernt).
 - **Nummer:** Zuerst zwei eigene, stark vergrößerte Ausschnitte, links unten (neuere und japanische Karten) und rechts unten (ältere Karten), dann der ganze untere Streifen. Nummer und Gesamtzahl müssen in einer Zeile stehen. Eine Nummer weit über der Set-Größe wird vorne gekürzt („994/102“ → „94/102“), weil Störzeichen oft als Ziffer gelesen werden.
 - **Japanisch:** Zeigt die Nummer auf eine japanische Karte oder passt der englisch gelesene Name zu keiner Karte, liest ein zweiter Durchgang mit japanischen Sprachdaten. Verglichen wird ohne Dakuten (ボ = ポ = ホ), weil die Texterkennung die kleinen Striche oft verwechselt.
 - **Deutsch und Englisch** liest dieselbe englische Texterkennung. Deutsche und englische Fassung einer Karte haben dasselbe Bild und dieselbe Nummer; der Name trennt sie. Heißt eine Karte in beiden Sprachen gleich (Pikachu), fragt der Scanner nach.
@@ -117,6 +122,18 @@ Messung mit `test/real-scan-benchmark.ts`: alle 109 gedruckten Karten namens Ven
 | mit zweiter Stufe | 100 % | 100 % | 75 % / 25 % | 0 |
 
 Base Set 2 wurde in zwei von vier Fotos eindeutig erkannt; in den beiden anderen stand es auf Platz 1, knapp vor Legendary Collection mit gleichem Bild, und der Scanner fragte nach. Ein Scan dauert mit der zweiten Stufe im Mittel 2,4 statt 1,8 Sekunden.
+
+### Echtes Foto: Venusaur aus Base Set 2
+
+Ein Handyfoto von Tobias (Karte in Hülle, in der Hand, Zimmerlicht) gegen denselben Katalog mit allen Bisaflor-Varianten und 57.000 Füllkarten:
+
+| Fassung | vorher | jetzt |
+| --- | --- | --- |
+| eng auf die Karte zugeschnitten | Platz 1, unsicher (0,69 zu 0,67 vor Legendary Collection) | eindeutig (0,67 zu 0,52), Nummer über „…/130“ |
+| wie die App zuschneidet, mit Hand am Rand | nichts gefunden | eindeutig (0,69 zu 0,45), Nummer 18/130 gelesen |
+| ganzes Foto | Unsinn | Platz 1, unsicher (0,60 zu 0,50) |
+
+Das Foto liegt nicht im Repository.
 
 ## Grenzen
 
